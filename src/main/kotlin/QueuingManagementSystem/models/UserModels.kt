@@ -23,11 +23,35 @@ data class UserModel(
     val is_active: Boolean
 )
 
-fun UserRequest.validateUserRequest(isCreate: Boolean): MutableList<GlobalCredentialResponse> {
-    val errors = mutableListOf<GlobalCredentialResponse>()
-    if (username.isBlank()) errors.add(GlobalCredentialResponse(400, false, "username is required"))
-    if (full_name.isBlank()) errors.add(GlobalCredentialResponse(400, false, "full_name is required"))
-    if (role.isBlank()) errors.add(GlobalCredentialResponse(400, false, "role is required"))
-    if (isCreate && (password == null || password.isBlank())) errors.add(GlobalCredentialResponse(400, false, "password is required"))
+fun QueuingManagementSystem.models.UserRequest.validateUserRequest(isCreate: Boolean): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
+    val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
+    if (username.isBlank()) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "username is required"
+        )
+    )
+    if (full_name.isBlank()) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "full_name is required"
+        )
+    )
+    if (role.isBlank()) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "role is required"
+        )
+    )
+    if (isCreate && (password == null || password.isBlank())) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "password is required"
+        )
+    )
     return errors
 }

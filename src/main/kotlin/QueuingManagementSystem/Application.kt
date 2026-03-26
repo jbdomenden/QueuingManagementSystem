@@ -1,13 +1,12 @@
 package QueuingManagementSystem
 
+import io.ktor.server.application.Application
 import QueuingManagementSystem.plugins.configureRouting
 import QueuingManagementSystem.plugins.configureSerialization
 import QueuingManagementSystem.plugins.configureSockets
-import io.ktor.server.application.Application
-import io.ktor.server.netty.EngineMain
 
 fun main(args: Array<String>) {
-    EngineMain.main(args)
+    io.ktor.server.netty.EngineMain.main(args)
 }
 
 fun Application.module() {

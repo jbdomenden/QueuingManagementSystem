@@ -42,16 +42,34 @@ data class DisplayTicketSnapshot(
 
 @Serializable
 data class DisplaySnapshotResponse(
-    val queued: List<DisplayTicketSnapshot>,
-    val now_serving: List<DisplayTicketSnapshot>,
-    val skipped: List<DisplayTicketSnapshot>,
-    val result: GlobalCredentialResponse
+    val queued: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
+    val now_serving: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
+    val skipped: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
+    val result: QueuingManagementSystem.models.GlobalCredentialResponse
 )
 
-fun DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<GlobalCredentialResponse> {
-    val errors = mutableListOf<GlobalCredentialResponse>()
-    if (department_id <= 0) errors.add(GlobalCredentialResponse(400, false, "department_id is required"))
-    if (code.isBlank()) errors.add(GlobalCredentialResponse(400, false, "code is required"))
-    if (name.isBlank()) errors.add(GlobalCredentialResponse(400, false, "name is required"))
+fun QueuingManagementSystem.models.DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
+    val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
+    if (department_id <= 0) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "department_id is required"
+        )
+    )
+    if (code.isBlank()) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "code is required"
+        )
+    )
+    if (name.isBlank()) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "name is required"
+        )
+    )
     return errors
 }

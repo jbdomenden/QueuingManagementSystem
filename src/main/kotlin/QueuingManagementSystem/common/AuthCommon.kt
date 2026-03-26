@@ -15,6 +15,6 @@ fun ApplicationRequest.extractBearerToken(): String {
     return authHeader.removePrefix("Bearer ").trim()
 }
 
-fun UserSessionModel.hasDepartmentAccess(targetDepartmentId: Int): Boolean {
-    return role == UserRole.SUPERADMIN.name || department_id == targetDepartmentId
+fun QueuingManagementSystem.models.UserSessionModel.hasDepartmentAccess(targetDepartmentId: Int): Boolean {
+    return role == _root_ide_package_.QueuingManagementSystem.common.UserRole.SUPERADMIN.name || department_id == targetDepartmentId
 }

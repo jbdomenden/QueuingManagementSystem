@@ -34,9 +34,21 @@ data class TicketModel(
     val completed_at: String? = null
 )
 
-fun TicketCreateRequest.validateTicketCreateRequest(): MutableList<GlobalCredentialResponse> {
-    val errors = mutableListOf<GlobalCredentialResponse>()
-    if (kiosk_id <= 0) errors.add(GlobalCredentialResponse(400, false, "kiosk_id is required"))
-    if (queue_type_id <= 0) errors.add(GlobalCredentialResponse(400, false, "queue_type_id is required"))
+fun QueuingManagementSystem.models.TicketCreateRequest.validateTicketCreateRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
+    val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
+    if (kiosk_id <= 0) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "kiosk_id is required"
+        )
+    )
+    if (queue_type_id <= 0) errors.add(
+        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+            400,
+            false,
+            "queue_type_id is required"
+        )
+    )
     return errors
 }

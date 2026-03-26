@@ -12,13 +12,13 @@ data class GlobalCredentialResponse(
 @Serializable
 data class IdResponse(
     val id: Int,
-    val result: GlobalCredentialResponse
+    val result: QueuingManagementSystem.models.GlobalCredentialResponse
 )
 
 @Serializable
 data class ListResponse<T>(
     val data: List<T>,
-    val result: GlobalCredentialResponse
+    val result: QueuingManagementSystem.models.GlobalCredentialResponse
 )
 
 @Serializable

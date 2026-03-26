@@ -1,13 +1,12 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.realtime.AdminSocketManager
-import QueuingManagementSystem.realtime.DisplaySocketManager
-import QueuingManagementSystem.realtime.HandlerSocketManager
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
-import kotlin.text.get
+import QueuingManagementSystem.realtime.AdminSocketManager
+import QueuingManagementSystem.realtime.DisplaySocketManager
+import QueuingManagementSystem.realtime.HandlerSocketManager
 
 fun Route.realtimeRoutes() {
     webSocket("/ws/handler/{handlerId}") {

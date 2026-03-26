@@ -15,6 +15,7 @@ import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.routing.routing
+import marlow.systems.queuingsystem.routes.*
 
 fun Application.configureRouting() {
     routing {
