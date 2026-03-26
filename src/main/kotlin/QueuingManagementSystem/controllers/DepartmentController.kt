@@ -9,8 +9,8 @@ import QueuingManagementSystem.queries.updateDepartmentQuery
 
 class DepartmentController {
     fun createDepartment(request: QueuingManagementSystem.models.DepartmentRequest): Int {
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.postDepartmentQuery).use { statement ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(QueuingManagementSystem.queries.postDepartmentQuery).use { statement ->
                 statement.setString(1, request.code)
                 statement.setString(2, request.name)
                 statement.setBoolean(3, request.is_active)
@@ -21,8 +21,8 @@ class DepartmentController {
     }
 
     fun updateDepartment(request: QueuingManagementSystem.models.DepartmentRequest): Boolean {
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.updateDepartmentQuery).use { statement ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(QueuingManagementSystem.queries.updateDepartmentQuery).use { statement ->
                 statement.setString(1, request.code)
                 statement.setString(2, request.name)
                 statement.setBoolean(3, request.is_active)
@@ -34,12 +34,12 @@ class DepartmentController {
 
     fun getDepartments(): MutableList<QueuingManagementSystem.models.DepartmentModel> {
         val items = mutableListOf<QueuingManagementSystem.models.DepartmentModel>()
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.getDepartmentsQuery).use { statement ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(QueuingManagementSystem.queries.getDepartmentsQuery).use { statement ->
                 statement.executeQuery().use { rs ->
                     while (rs.next()) {
                         items.add(
-                            _root_ide_package_.QueuingManagementSystem.models.DepartmentModel(
+                            QueuingManagementSystem.models.DepartmentModel(
                                 rs.getInt("id"),
                                 rs.getString("code"),
                                 rs.getString("name"),

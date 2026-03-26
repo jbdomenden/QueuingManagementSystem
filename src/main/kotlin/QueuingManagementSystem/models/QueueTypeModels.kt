@@ -25,28 +25,28 @@ data class QueueTypeModel(
 fun QueuingManagementSystem.models.QueueTypeRequest.validateQueueTypeRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
     val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
     if (department_id <= 0) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "department_id is required"
         )
     )
     if (name.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "name is required"
         )
     )
     if (code.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "code is required"
         )
     )
     if (prefix.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "prefix is required"

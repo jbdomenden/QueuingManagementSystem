@@ -3,16 +3,16 @@ package QueuingManagementSystem.controllers
 import QueuingManagementSystem.config.ConnectionPoolManager
 import QueuingManagementSystem.models.TicketCreateRequest
 import QueuingManagementSystem.models.TicketModel
-import marlow.systems.queuingsystem.queries.*
+import QueuingManagementSystem.queries.*
 
 class TicketController {
     fun createTicket(request: QueuingManagementSystem.models.TicketCreateRequest): QueuingManagementSystem.models.TicketModel {
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
                 var departmentId = 0
                 var prefix = ""
-                connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.getQueueTypeWithDepartmentByIdQuery).use { statement ->
+                connection.prepareStatement(QueuingManagementSystem.queries.getQueueTypeWithDepartmentByIdQuery).use { statement ->
                     statement.setInt(1, request.queue_type_id)
                     statement.executeQuery().use { rs ->
                         if (rs.next()) {
@@ -24,14 +24,14 @@ class TicketController {
                 if (departmentId == 0) throw IllegalStateException("queue type not found")
 
                 var sequence = 0
-                connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.upsertQueueDailySequenceQuery).use { statement ->
+                connection.prepareStatement(QueuingManagementSystem.queries.upsertQueueDailySequenceQuery).use { statement ->
                     statement.setInt(1, request.queue_type_id)
                     statement.executeQuery().use { rs -> if (rs.next()) sequence = rs.getInt("current_value") }
                 }
 
                 val ticketNumber = "$prefix-${sequence.toString().padStart(3, '0')}"
                 var ticketId = 0
-                connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.postTicketQuery).use { statement ->
+                connection.prepareStatement(QueuingManagementSystem.queries.postTicketQuery).use { statement ->
                     statement.setString(1, ticketNumber)
                     statement.setInt(2, departmentId)
                     statement.setInt(3, request.queue_type_id)
@@ -40,7 +40,7 @@ class TicketController {
                 }
 
                 connection.commit()
-                return _root_ide_package_.QueuingManagementSystem.models.TicketModel(
+                return QueuingManagementSystem.models.TicketModel(
                     ticketId,
                     ticketNumber,
                     departmentId,
@@ -53,7 +53,7 @@ class TicketController {
                 )
             } catch (e: Exception) {
                 connection.rollback()
-                return _root_ide_package_.QueuingManagementSystem.models.TicketModel(
+                return QueuingManagementSystem.models.TicketModel(
                     0,
                     "",
                     0,
@@ -72,13 +72,13 @@ class TicketController {
 
     fun getLiveTickets(departmentId: Int): MutableList<QueuingManagementSystem.models.TicketModel> {
         val list = mutableListOf<QueuingManagementSystem.models.TicketModel>()
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.getLiveTicketsByDepartmentQuery).use { statement ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(QueuingManagementSystem.queries.getLiveTicketsByDepartmentQuery).use { statement ->
                 statement.setInt(1, departmentId)
                 statement.executeQuery().use { rs ->
                     while (rs.next()) {
                         list.add(
-                            _root_ide_package_.QueuingManagementSystem.models.TicketModel(
+                            QueuingManagementSystem.models.TicketModel(
                                 id = rs.getInt("id"),
                                 ticket_number = rs.getString("ticket_number"),
                                 department_id = rs.getInt("department_id"),
@@ -102,15 +102,15 @@ class TicketController {
     }
 
     fun callNext(handlerId: Int): QueuingManagementSystem.models.TicketModel {
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
-                connection.prepareStatement(_root_ide_package_.QueuingManagementSystem.queries.getWaitingTicketForHandlerCallNextWithLockingQuery).use { statement ->
+                connection.prepareStatement(QueuingManagementSystem.queries.getWaitingTicketForHandlerCallNextWithLockingQuery).use { statement ->
                     statement.setInt(1, handlerId)
                     statement.setInt(2, handlerId)
                     statement.executeQuery().use { rs ->
                         if (rs.next()) {
-                            val model = _root_ide_package_.QueuingManagementSystem.models.TicketModel(
+                            val model = QueuingManagementSystem.models.TicketModel(
                                 rs.getInt("id"),
                                 rs.getString("ticket_number"),
                                 rs.getInt("department_id"),
@@ -135,19 +135,19 @@ class TicketController {
                 connection.autoCommit = true
             }
         }
-        return _root_ide_package_.QueuingManagementSystem.models.TicketModel(0, "", 0, 0, null, null, null, "", "")
+        return QueuingManagementSystem.models.TicketModel(0, "", 0, 0, null, null, null, "", "")
     }
 
     fun updateTicketStatus(ticketId: Int, handlerId: Int, action: String): Boolean {
         val query = when (action) {
-            "IN_SERVICE" -> _root_ide_package_.QueuingManagementSystem.queries.updateTicketToInServiceQuery
-            "SKIPPED" -> _root_ide_package_.QueuingManagementSystem.queries.updateTicketToSkippedQuery
-            "CALLED" -> _root_ide_package_.QueuingManagementSystem.queries.updateTicketToCalledRecallQuery
-            "COMPLETED" -> _root_ide_package_.QueuingManagementSystem.queries.updateTicketToCompletedQuery
+            "IN_SERVICE" -> QueuingManagementSystem.queries.updateTicketToInServiceQuery
+            "SKIPPED" -> QueuingManagementSystem.queries.updateTicketToSkippedQuery
+            "CALLED" -> QueuingManagementSystem.queries.updateTicketToCalledRecallQuery
+            "COMPLETED" -> QueuingManagementSystem.queries.updateTicketToCompletedQuery
             else -> ""
         }
         if (query.isBlank()) return false
-        _root_ide_package_.QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
+        QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { connection ->
             connection.prepareStatement(query).use { statement ->
                 statement.setInt(1, ticketId)
                 statement.setInt(2, handlerId)

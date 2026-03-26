@@ -21,14 +21,14 @@ data class LoginResponse(
 fun QueuingManagementSystem.models.LoginRequest.validateLoginRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
     val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
     if (username.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "username is required"
         )
     )
     if (password.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "password is required"
