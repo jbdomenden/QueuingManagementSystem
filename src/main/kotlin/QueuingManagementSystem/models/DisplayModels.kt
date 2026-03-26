@@ -47,7 +47,12 @@ data class DisplayTicketSnapshot(
     val assigned_window_id: Int?,
     val assigned_window_name: String?,
     val status: String,
-    val created_at: String
+    val created_at: String,
+    val queuedAt: String? = null,
+    val waitingSeconds: Long? = null,
+    val waitingDisplay: String? = null,
+    val servedSeconds: Long? = null,
+    val servedDisplay: String? = null
 )
 
 @Serializable

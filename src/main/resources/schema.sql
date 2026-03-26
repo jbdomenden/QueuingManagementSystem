@@ -124,12 +124,15 @@ CREATE TABLE IF NOT EXISTS tickets (
     assigned_window_id INT NULL REFERENCES windows(id),
     assigned_handler_id INT NULL REFERENCES handlers(id),
     status VARCHAR(50) NOT NULL CHECK (status IN ('WAITING', 'CALLED', 'IN_SERVICE', 'HOLD', 'SKIPPED', 'COMPLETED', 'CANCELLED', 'TRANSFERRED')),
+    service_date DATE NOT NULL DEFAULT CURRENT_DATE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     called_at TIMESTAMP NULL,
     service_started_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
     last_action_at TIMESTAMP NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    archived BOOLEAN NOT NULL DEFAULT FALSE,
+    archived_at TIMESTAMP NULL
 );
 
 CREATE TABLE IF NOT EXISTS ticket_logs (
@@ -152,6 +155,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE INDEX IF NOT EXISTS idx_tickets_archived ON tickets(archived);
+CREATE INDEX IF NOT EXISTS idx_tickets_service_date ON tickets(service_date);
+CREATE INDEX IF NOT EXISTS idx_tickets_department_id ON tickets(department_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_queue_type_id ON tickets(queue_type_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned_window_id ON tickets(assigned_window_id);
