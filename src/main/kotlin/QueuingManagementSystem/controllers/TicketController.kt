@@ -2,12 +2,7 @@ package QueuingManagementSystem.controllers
 
 import QueuingManagementSystem.common.formatDurationToHms
 import QueuingManagementSystem.config.ConnectionPoolManager
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
 import QueuingManagementSystem.models.*
-=======
-import QueuingManagementSystem.models.TicketCreateRequest
-import QueuingManagementSystem.models.TicketModel
->>>>>>> master
 import QueuingManagementSystem.queries.*
 
 class TicketController {
@@ -49,15 +44,7 @@ class TicketController {
                     statement.setInt(2, departmentId)
                     statement.setInt(3, request.queue_type_id)
                     statement.setInt(4, request.kiosk_id)
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
                     statement.executeQuery().use { rs -> if (rs.next()) ticket = mapTicket(rs) }
-=======
-                    statement.executeQuery().use { rs ->
-                        if (rs.next()) {
-                            ticket = mapTicket(rs)
-                        }
-                    }
->>>>>>> master
                 }
 
                 if (ticket.id <= 0) throw IllegalStateException("failed to insert ticket")
@@ -81,7 +68,6 @@ class TicketController {
         }
     }
 
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
     fun createTicketWithPrintable(request: TicketCreateRequest): TicketCreateResponse {
         val ticket = createTicket(request)
         if (ticket.id <= 0) {
@@ -137,15 +123,6 @@ class TicketController {
                             formattedPrintText = formatted
                         )
                     }
-=======
-    fun getLiveTickets(departmentId: Int): MutableList<TicketModel> {
-        val list = mutableListOf<TicketModel>()
-        ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(getLiveTicketsByDepartmentQuery).use { statement ->
-                statement.setInt(1, departmentId)
-                statement.executeQuery().use { rs ->
-                    while (rs.next()) list.add(mapTicket(rs))
->>>>>>> master
                 }
             }
         }
@@ -283,50 +260,6 @@ class TicketController {
             }
         }
         return TicketModel(0, "", 0, 0, null, null, null, "", "")
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
-    }
-
-    fun updateTicketStatus(ticketId: Int, handlerId: Int, action: String, notes: String? = null): Boolean {
-        val payload = notes?.replace("\"", "'") ?: ""
-        ConnectionPoolManager.getConnection().use { connection ->
-            connection.autoCommit = false
-            try {
-                val updated = when (action) {
-                    "IN_SERVICE" -> runUpdate(connection, updateTicketToInServiceQuery, ticketId, handlerId) || runUpdateForCurrentWindow(connection, ticketId, handlerId, "IN_SERVICE")
-                    "SKIPPED" -> runUpdate(connection, updateTicketToSkippedQuery, ticketId, handlerId)
-                    "CALLED" -> runUpdate(connection, updateTicketToCalledRecallQuery, ticketId, handlerId)
-                    "COMPLETED" -> runUpdate(connection, updateTicketToCompletedQuery, ticketId, handlerId)
-                    else -> false
-                }
-                if (!updated) {
-                    connection.rollback()
-                    return false
-                }
-
-                connection.prepareStatement(postTicketLogQuery).use { statement ->
-                    statement.setInt(1, ticketId)
-                    statement.setString(2, action)
-                    statement.setInt(3, handlerId)
-                    statement.setString(4, "{\"notes\":\"$payload\"}")
-                    statement.executeUpdate()
-                }
-                connection.commit()
-                return true
-            } catch (e: Exception) {
-                connection.rollback()
-                return false
-            } finally {
-                connection.autoCommit = true
-            }
-        }
-    }
-
-    fun getDisplayIdsForQueueType(queueTypeId: Int): MutableList<Int> {
-        val ids = mutableListOf<Int>()
-        ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(getDisplayIdsForQueueTypeQuery).use { statement ->
-                statement.setInt(1, queueTypeId)
-=======
     }
 
     fun updateTicketStatus(ticketId: Int, handlerId: Int, action: String, notes: String? = null): Boolean {
@@ -375,31 +308,6 @@ class TicketController {
         return ids
     }
 
-
-    fun getDisplayIdsByHandler(handlerId: Int): MutableList<Int> {
-        val ids = mutableListOf<Int>()
-        ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(getDisplayIdsByHandlerQuery).use { statement ->
-                statement.setInt(1, handlerId)
->>>>>>> master
-                statement.executeQuery().use { rs -> while (rs.next()) ids.add(rs.getInt("display_board_id")) }
-            }
-        }
-        return ids
-    }
-
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
-=======
-    private fun runUpdate(connection: java.sql.Connection, query: String, ticketId: Int, handlerId: Int): Boolean {
-        connection.prepareStatement(query).use { statement ->
-            statement.setInt(1, ticketId)
-            statement.setInt(2, handlerId)
-            return statement.executeUpdate() > 0
-        }
-    }
-
-
->>>>>>> master
     fun getDisplayIdsByHandler(handlerId: Int): MutableList<Int> {
         val ids = mutableListOf<Int>()
         ConnectionPoolManager.getConnection().use { connection ->
@@ -411,7 +319,6 @@ class TicketController {
         return ids
     }
 
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
     private fun runUpdate(connection: java.sql.Connection, query: String, ticketId: Int, handlerId: Int): Boolean {
         connection.prepareStatement(query).use { statement ->
             statement.setInt(1, ticketId)
@@ -420,8 +327,6 @@ class TicketController {
         }
     }
 
-=======
->>>>>>> master
     private fun runUpdateForCurrentWindow(connection: java.sql.Connection, ticketId: Int, handlerId: Int, action: String): Boolean {
         val query = """
 UPDATE tickets
@@ -434,10 +339,7 @@ WHERE id = ?
       SELECT window_id FROM handler_sessions WHERE handler_id = ? AND is_active = true ORDER BY id DESC LIMIT 1
   )
   AND status IN ('CALLED', 'IN_SERVICE')
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND archived = false
-=======
->>>>>>> master
 """
         connection.prepareStatement(query).use { statement ->
             statement.setString(1, action)
@@ -449,10 +351,7 @@ WHERE id = ?
     }
 
     private fun mapTicket(rs: java.sql.ResultSet): TicketModel {
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
         val createdAt = rs.getString("created_at")
-=======
->>>>>>> master
         return TicketModel(
             id = rs.getInt("id"),
             ticket_number = rs.getString("ticket_number"),
@@ -462,7 +361,6 @@ WHERE id = ?
             assigned_window_id = rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
             assigned_handler_id = rs.getInt("assigned_handler_id").let { if (rs.wasNull()) null else it },
             status = rs.getString("status"),
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
             created_at = createdAt,
             called_at = rs.getString("called_at"),
             completed_at = rs.getString("completed_at"),
@@ -487,11 +385,6 @@ WHERE id = ?
             waitingDisplay = formatDurationToHms(waiting),
             servedSeconds = served,
             servedDisplay = formatDurationToHms(served)
-=======
-            created_at = rs.getString("created_at"),
-            called_at = rs.getString("called_at"),
-            completed_at = rs.getString("completed_at")
->>>>>>> master
         )
     }
 }

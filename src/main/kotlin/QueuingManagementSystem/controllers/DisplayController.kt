@@ -130,11 +130,8 @@ class DisplayController {
                 s.setInt(1, displayBoardId)
                 s.executeQuery().use { rs ->
                     while (rs.next()) {
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
                         val waitingSeconds = rs.getLong("waiting_seconds").let { if (rs.wasNull()) null else it }
                         val servedSeconds = rs.getLong("served_seconds").let { if (rs.wasNull()) null else it }
-=======
->>>>>>> master
                         items.add(
                             DisplayTicketSnapshot(
                                 rs.getInt("id"),
@@ -144,16 +141,12 @@ class DisplayController {
                                 rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
                                 rs.getString("assigned_window_name"),
                                 rs.getString("status"),
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
                                 rs.getString("created_at"),
                                 rs.getString("queued_at"),
                                 waitingSeconds,
                                 formatDurationToHms(waitingSeconds),
                                 servedSeconds,
                                 formatDurationToHms(servedSeconds)
-=======
-                                rs.getString("created_at")
->>>>>>> master
                             )
                         )
                     }
