@@ -26,28 +26,28 @@ data class UserModel(
 fun QueuingManagementSystem.models.UserRequest.validateUserRequest(isCreate: Boolean): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
     val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
     if (username.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "username is required"
         )
     )
     if (full_name.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "full_name is required"
         )
     )
     if (role.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "role is required"
         )
     )
     if (isCreate && (password == null || password.isBlank())) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "password is required"

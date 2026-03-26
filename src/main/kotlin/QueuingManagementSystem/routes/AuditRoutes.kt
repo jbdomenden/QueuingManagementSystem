@@ -6,7 +6,7 @@ import io.ktor.server.routing.*
 import QueuingManagementSystem.controllers.AuditController
 
 fun Route.auditRoutes() {
-    val controller = _root_ide_package_.QueuingManagementSystem.controllers.AuditController()
+    val controller = QueuingManagementSystem.controllers.AuditController()
     route("/audit") {
         get("/logs") {
             val departmentId = call.request.queryParameters["departmentId"]?.toIntOrNull()

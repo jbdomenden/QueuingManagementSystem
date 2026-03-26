@@ -3,8 +3,16 @@ package QueuingManagementSystem.queries
 const val postDisplayBoardQuery = "INSERT INTO display_boards(department_id, area_id, code, name, is_active) VALUES(?, ?, ?, ?, ?) RETURNING id"
 const val updateDisplayBoardQuery = "UPDATE display_boards SET area_id = ?, code = ?, name = ?, is_active = ? WHERE id = ?"
 const val getDisplayBoardsQuery = "SELECT id, department_id, area_id, code, name, is_active FROM display_boards ORDER BY id"
+const val getDisplayBoardByIdQuery = "SELECT id, department_id, area_id, code, name, is_active FROM display_boards WHERE id = ?"
 const val deleteDisplayBoardWindowsQuery = "DELETE FROM display_board_windows WHERE display_board_id = ?"
 const val postDisplayBoardWindowQuery = "INSERT INTO display_board_windows(display_board_id, window_id) VALUES(?, ?)"
+const val getDisplayBoardWindowsQuery = """
+SELECT w.id, w.department_id, w.area_id, w.code, w.name, w.is_active
+FROM display_board_windows dbw
+JOIN windows w ON w.id = dbw.window_id
+WHERE dbw.display_board_id = ?
+ORDER BY w.id
+"""
 
 const val getQueuedTicketsForDisplayQuery = """
 SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,

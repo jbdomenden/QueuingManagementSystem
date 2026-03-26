@@ -21,14 +21,14 @@ data class DepartmentModel(
 fun QueuingManagementSystem.models.DepartmentRequest.validateDepartmentRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
     val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
     if (code.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "department code is required"
         )
     )
     if (name.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+        QueuingManagementSystem.models.GlobalCredentialResponse(
             400,
             false,
             "department name is required"
