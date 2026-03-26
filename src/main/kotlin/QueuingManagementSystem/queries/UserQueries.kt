@@ -4,3 +4,5 @@ const val postUserQuery = "INSERT INTO users(username, password_hash, full_name,
 const val updateUserQuery = "UPDATE users SET full_name = ?, role = ?, department_id = ?, is_active = ? WHERE id = ?"
 const val getUsersQuery = "SELECT id, username, full_name, role, department_id, is_active FROM users ORDER BY id"
 const val getUsersByDepartmentQuery = "SELECT id, username, full_name, role, department_id, is_active FROM users WHERE department_id = ? ORDER BY id"
+
+const val getUserByIdQuery = "SELECT id, username, full_name, role, department_id, is_active FROM users WHERE id = ?"

@@ -22,3 +22,13 @@ data class QueueVolumeModel(
     val queue_type_id: Int,
     val issued_count: Int
 )
+
+@Serializable
+data class ArchivedQueueReportModel(
+    val department_id: Int,
+    val queue_type_id: Int,
+    val status: String,
+    val ticket_count: Int,
+    val avg_waiting_seconds: Long,
+    val avg_served_seconds: Long
+)

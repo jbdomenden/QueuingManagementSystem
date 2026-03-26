@@ -1,6 +1,16 @@
 package QueuingManagementSystem.queries
 
-const val getQueueTypeWithDepartmentByIdQuery = "SELECT id, department_id, prefix FROM queue_types WHERE id = ?"
+const val getQueueTypeWithDepartmentByIdQuery = "SELECT id, department_id, prefix FROM queue_types WHERE id = ? AND is_active = true"
+const val getKioskByIdAndDepartmentQueueTypeQuery = """
+SELECT k.id
+FROM kiosks k
+JOIN kiosk_queue_types kqt ON kqt.kiosk_id = k.id
+WHERE k.id = ?
+  AND kqt.queue_type_id = ?
+  AND k.is_active = true
+"""
+
+const val getQueueDailySequenceQuery = "SELECT current_value FROM queue_daily_sequences WHERE queue_type_id = ? AND sequence_date = CURRENT_DATE"
 const val upsertQueueDailySequenceQuery = """
 INSERT INTO queue_daily_sequences(queue_type_id, sequence_date, current_value)
 VALUES(?, CURRENT_DATE, 1)
@@ -10,12 +20,39 @@ RETURNING current_value
 """
 
 const val postTicketQuery = """
-INSERT INTO tickets(ticket_number, department_id, queue_type_id, kiosk_id, status, created_at, updated_at)
-VALUES(?, ?, ?, ?, 'WAITING', NOW(), NOW())
-RETURNING id
+INSERT INTO tickets(ticket_number, department_id, queue_type_id, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
+VALUES(?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
+RETURNING id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
+          status, created_at::text, called_at::text, completed_at::text
 """
 
-const val getLiveTicketsByDepartmentQuery = "SELECT id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id, status, created_at::text, called_at::text, completed_at::text FROM tickets WHERE department_id = ? ORDER BY created_at DESC LIMIT 100"
+const val getTicketPrintableDetailsByIdQuery = """
+SELECT t.id AS ticket_id, t.ticket_number, t.department_id, d.name AS department_name,
+       t.queue_type_id, qt.name AS queue_type_name, t.status,
+       TO_CHAR(t.created_at, 'YYYY-MM-DD') AS queue_date,
+       TO_CHAR(t.created_at, 'HH24:MI:SS') AS queue_time,
+       t.created_at::text AS queued_at
+FROM tickets t
+JOIN departments d ON d.id = t.department_id
+JOIN queue_types qt ON qt.id = t.queue_type_id
+WHERE t.id = ?
+"""
+
+const val getDepartmentAndQueueTypeByTicketIdQuery = """
+SELECT t.department_id, t.queue_type_id
+FROM tickets t
+WHERE t.id = ?
+"""
+
+const val getLiveTicketsByDepartmentQuery = """
+SELECT id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
+       status, created_at::text, called_at::text, completed_at::text
+FROM tickets
+WHERE department_id = ?
+  AND archived = false
+ORDER BY created_at DESC
+LIMIT 100
+"""
 
 const val getWaitingTicketForHandlerCallNextWithLockingQuery = """
 WITH current_window AS (
@@ -31,6 +68,7 @@ WITH current_window AS (
     JOIN window_queue_types wqt ON wqt.queue_type_id = t.queue_type_id
     JOIN current_window cw ON cw.window_id = wqt.window_id
     WHERE t.status = 'WAITING'
+      AND t.archived = false
     ORDER BY t.created_at ASC
     FOR UPDATE SKIP LOCKED
     LIMIT 1
@@ -40,6 +78,7 @@ SET status = 'CALLED',
     assigned_handler_id = ?,
     assigned_window_id = (SELECT window_id FROM current_window),
     called_at = NOW(),
+    last_action_at = NOW(),
     updated_at = NOW()
 FROM candidate
 WHERE t.id = candidate.id
@@ -47,8 +86,198 @@ RETURNING t.id, t.ticket_number, t.department_id, t.queue_type_id, t.kiosk_id, t
           t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 """
 
-const val updateTicketToInServiceQuery = "UPDATE tickets SET status = 'IN_SERVICE', updated_at = NOW() WHERE id = ? AND assigned_handler_id = ?"
-const val updateTicketToSkippedQuery = "UPDATE tickets SET status = 'SKIPPED', updated_at = NOW() WHERE id = ? AND assigned_handler_id = ?"
-const val updateTicketToCalledRecallQuery = "UPDATE tickets SET status = 'CALLED', updated_at = NOW() WHERE id = ? AND assigned_handler_id = ?"
-const val updateTicketToCompletedQuery = "UPDATE tickets SET status = 'COMPLETED', completed_at = NOW(), updated_at = NOW() WHERE id = ? AND assigned_handler_id = ?"
+const val updateTicketToInServiceQuery = """
+UPDATE tickets
+SET status = 'IN_SERVICE',
+    service_started_at = NOW(),
+    last_action_at = NOW(),
+    updated_at = NOW()
+WHERE id = ?
+  AND assigned_handler_id = ?
+  AND archived = false
+"""
+
+const val updateTicketToSkippedQuery = """
+UPDATE tickets
+SET status = 'SKIPPED',
+    last_action_at = NOW(),
+    updated_at = NOW()
+WHERE id = ?
+  AND assigned_handler_id = ?
+  AND archived = false
+"""
+
+const val updateTicketToCalledRecallQuery = """
+UPDATE tickets
+SET status = 'CALLED',
+    last_action_at = NOW(),
+    updated_at = NOW()
+WHERE id = ?
+  AND assigned_handler_id = ?
+  AND archived = false
+"""
+
+const val updateTicketToCompletedQuery = """
+UPDATE tickets
+SET status = 'COMPLETED',
+    completed_at = NOW(),
+    last_action_at = NOW(),
+    updated_at = NOW()
+WHERE id = ?
+  AND assigned_handler_id = ?
+  AND archived = false
+"""
+
 const val postTicketLogQuery = "INSERT INTO ticket_logs(ticket_id, action, actor_handler_id, created_at, payload_json) VALUES(?, ?, ?, NOW(), ?)"
+
+const val markTicketsArchivedByServiceDateQuery = """
+UPDATE tickets
+SET archived = true,
+    archived_at = NOW(),
+    updated_at = NOW()
+WHERE service_date = ?::date
+  AND archived = false
+  AND (? IS NULL OR department_id = ?)
+"""
+
+const val getArchivedTicketsByDepartmentAndDateRangeQuery = """
+SELECT id, ticket_number, department_id, queue_type_id, status, service_date::text, created_at::text,
+       CASE WHEN called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (called_at - created_at))::bigint
+            ELSE EXTRACT(EPOCH FROM (NOW() - created_at))::bigint END AS waiting_seconds,
+       CASE
+         WHEN completed_at IS NOT NULL AND service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - service_started_at))::bigint
+         WHEN completed_at IS NOT NULL AND called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - called_at))::bigint
+         ELSE NULL
+       END AS served_seconds
+FROM tickets
+WHERE archived = true
+  AND department_id = ?
+  AND service_date BETWEEN ?::date AND ?::date
+  AND (? IS NULL OR queue_type_id = ?)
+  AND (? IS NULL OR status = ?)
+ORDER BY created_at DESC
+"""
+
+const val getArchivedTicketsByDateRangeQuery = """
+SELECT id, ticket_number, department_id, queue_type_id, status, service_date::text, created_at::text,
+       CASE WHEN called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (called_at - created_at))::bigint
+            ELSE EXTRACT(EPOCH FROM (NOW() - created_at))::bigint END AS waiting_seconds,
+       CASE
+         WHEN completed_at IS NOT NULL AND service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - service_started_at))::bigint
+         WHEN completed_at IS NOT NULL AND called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - called_at))::bigint
+         ELSE NULL
+       END AS served_seconds
+FROM tickets
+WHERE archived = true
+  AND service_date BETWEEN ?::date AND ?::date
+  AND (? IS NULL OR queue_type_id = ?)
+  AND (? IS NULL OR status = ?)
+ORDER BY created_at DESC
+"""
+
+const val getArchivedTicketByIdQuery = """
+SELECT id, ticket_number, department_id, queue_type_id, status, service_date::text, created_at::text,
+       CASE WHEN called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (called_at - created_at))::bigint
+            ELSE EXTRACT(EPOCH FROM (NOW() - created_at))::bigint END AS waiting_seconds,
+       CASE
+         WHEN completed_at IS NOT NULL AND service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - service_started_at))::bigint
+         WHEN completed_at IS NOT NULL AND called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (completed_at - called_at))::bigint
+         ELSE NULL
+       END AS served_seconds
+FROM tickets
+WHERE id = ?
+  AND archived = true
+"""
+
+const val getQueuedTicketsForDisplayQuery = """
+SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+       w.name AS assigned_window_name, t.status, t.created_at::text,
+       t.created_at::text AS queued_at,
+       EXTRACT(EPOCH FROM (NOW() - t.created_at))::bigint AS waiting_seconds,
+       NULL::bigint AS served_seconds
+FROM tickets t
+JOIN queue_types qt ON qt.id = t.queue_type_id
+LEFT JOIN windows w ON w.id = t.assigned_window_id
+WHERE t.status = 'WAITING'
+  AND t.archived = false
+  AND EXISTS (
+      SELECT 1
+      FROM display_board_windows dbw
+      JOIN window_queue_types wqt ON wqt.window_id = dbw.window_id
+      WHERE dbw.display_board_id = ?
+        AND wqt.queue_type_id = t.queue_type_id
+  )
+ORDER BY t.created_at ASC
+"""
+
+const val getNowServingTicketsForDisplayQuery = """
+SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+       w.name AS assigned_window_name, t.status, t.created_at::text,
+       t.created_at::text AS queued_at,
+       CASE WHEN t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.called_at - t.created_at))::bigint
+            ELSE EXTRACT(EPOCH FROM (NOW() - t.created_at))::bigint END AS waiting_seconds,
+       CASE
+         WHEN t.completed_at IS NOT NULL AND t.service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.service_started_at))::bigint
+         WHEN t.completed_at IS NOT NULL AND t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.called_at))::bigint
+         ELSE NULL
+       END AS served_seconds
+FROM tickets t
+JOIN queue_types qt ON qt.id = t.queue_type_id
+LEFT JOIN windows w ON w.id = t.assigned_window_id
+WHERE t.status IN ('CALLED', 'IN_SERVICE')
+  AND t.archived = false
+  AND t.assigned_window_id IN (
+      SELECT dbw.window_id
+      FROM display_board_windows dbw
+      WHERE dbw.display_board_id = ?
+  )
+ORDER BY t.called_at DESC NULLS LAST
+"""
+
+const val getSkippedTicketsForDisplayQuery = """
+SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+       w.name AS assigned_window_name, t.status, t.created_at::text,
+       t.created_at::text AS queued_at,
+       CASE WHEN t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.called_at - t.created_at))::bigint
+            ELSE EXTRACT(EPOCH FROM (NOW() - t.created_at))::bigint END AS waiting_seconds,
+       CASE
+         WHEN t.completed_at IS NOT NULL AND t.service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.service_started_at))::bigint
+         WHEN t.completed_at IS NOT NULL AND t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.called_at))::bigint
+         ELSE NULL
+       END AS served_seconds
+FROM tickets t
+JOIN queue_types qt ON qt.id = t.queue_type_id
+LEFT JOIN windows w ON w.id = t.assigned_window_id
+WHERE t.status = 'SKIPPED'
+  AND t.archived = false
+  AND t.assigned_window_id IN (
+      SELECT dbw.window_id
+      FROM display_board_windows dbw
+      WHERE dbw.display_board_id = ?
+  )
+ORDER BY t.updated_at DESC
+LIMIT 20
+"""
+
+const val getActiveHandlerSessionsByQueueTypeEligibilityQuery = """
+SELECT hs.id, hs.handler_id, hs.user_id, hs.window_id
+FROM handler_sessions hs
+JOIN window_queue_types wqt ON wqt.window_id = hs.window_id
+WHERE hs.is_active = true
+  AND hs.status = 'ONLINE'
+  AND wqt.queue_type_id = ?
+"""
+
+const val getDisplayIdsForQueueTypeQuery = """
+SELECT DISTINCT dbw.display_board_id
+FROM display_board_windows dbw
+JOIN window_queue_types wqt ON wqt.window_id = dbw.window_id
+WHERE wqt.queue_type_id = ?
+"""
+
+const val getDisplayIdsByHandlerQuery = """
+SELECT DISTINCT dbw.display_board_id
+FROM handler_sessions hs
+JOIN display_board_windows dbw ON dbw.window_id = hs.window_id
+WHERE hs.handler_id = ? AND hs.is_active = true
+"""

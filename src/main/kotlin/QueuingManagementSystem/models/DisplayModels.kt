@@ -29,6 +29,16 @@ data class DisplayBoardModel(
 )
 
 @Serializable
+data class DisplayWindowModel(
+    val id: Int,
+    val department_id: Int,
+    val area_id: Int?,
+    val code: String,
+    val name: String,
+    val is_active: Boolean
+)
+
+@Serializable
 data class DisplayTicketSnapshot(
     val ticket_id: Int,
     val ticket_number: String,
@@ -37,39 +47,28 @@ data class DisplayTicketSnapshot(
     val assigned_window_id: Int?,
     val assigned_window_name: String?,
     val status: String,
-    val created_at: String
+    val created_at: String,
+    val queuedAt: String? = null,
+    val waitingSeconds: Long? = null,
+    val waitingDisplay: String? = null,
+    val servedSeconds: Long? = null,
+    val servedDisplay: String? = null
 )
 
 @Serializable
 data class DisplaySnapshotResponse(
-    val queued: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
-    val now_serving: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
-    val skipped: List<QueuingManagementSystem.models.DisplayTicketSnapshot>,
-    val result: QueuingManagementSystem.models.GlobalCredentialResponse
+    val display: DisplayBoardModel?,
+    val windows: List<DisplayWindowModel>,
+    val queued: List<DisplayTicketSnapshot>,
+    val now_serving: List<DisplayTicketSnapshot>,
+    val skipped: List<DisplayTicketSnapshot>,
+    val result: GlobalCredentialResponse
 )
 
-fun QueuingManagementSystem.models.DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<QueuingManagementSystem.models.GlobalCredentialResponse> {
-    val errors = mutableListOf<QueuingManagementSystem.models.GlobalCredentialResponse>()
-    if (department_id <= 0) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
-            400,
-            false,
-            "department_id is required"
-        )
-    )
-    if (code.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
-            400,
-            false,
-            "code is required"
-        )
-    )
-    if (name.isBlank()) errors.add(
-        _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
-            400,
-            false,
-            "name is required"
-        )
-    )
+fun DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<GlobalCredentialResponse> {
+    val errors = mutableListOf<GlobalCredentialResponse>()
+    if (department_id <= 0) errors.add(GlobalCredentialResponse(400, false, "department_id is required"))
+    if (code.isBlank()) errors.add(GlobalCredentialResponse(400, false, "code is required"))
+    if (name.isBlank()) errors.add(GlobalCredentialResponse(400, false, "name is required"))
     return errors
 }
