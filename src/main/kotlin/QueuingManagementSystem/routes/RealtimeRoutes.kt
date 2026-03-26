@@ -13,18 +13,29 @@ fun Route.realtimeRoutes() {
     route("/realtime") {
         webSocket("/ws/handler/{handlerId}") {
             val handlerId = call.parameters["handlerId"]?.toIntOrNull() ?: 0
-            HandlerSocketManager.connect(handlerId, this)
+            val windowId = call.request.queryParameters["windowId"]?.toIntOrNull() ?: 0
+            if (handlerId <= 0 || windowId <= 0) {
+                close()
+                return@webSocket
+            }
+
+            HandlerSocketManager.connect(handlerId, windowId, this)
             try {
                 for (frame in incoming) {
                     if (frame is Frame.Text && frame.readText() == "ping") outgoing.send(Frame.Text("pong"))
                 }
             } finally {
-                HandlerSocketManager.disconnect(handlerId)
+                HandlerSocketManager.disconnect(handlerId, windowId)
             }
         }
 
         webSocket("/ws/display/{displayId}") {
             val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
+            if (displayId <= 0) {
+                close()
+                return@webSocket
+            }
+
             DisplaySocketManager.connect(displayId, this)
             try {
                 for (frame in incoming) {

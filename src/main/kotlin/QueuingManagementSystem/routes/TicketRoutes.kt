@@ -3,6 +3,7 @@ package QueuingManagementSystem.routes
 import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.controllers.TicketController
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.realtime.EventPublisher
@@ -13,6 +14,7 @@ import io.ktor.server.routing.*
 
 fun Route.ticketRoutes() {
     val authController = AuthController()
+    val handlerController = HandlerController()
     val controller = TicketController()
     val eventPublisher = EventPublisher()
 
@@ -26,8 +28,10 @@ fun Route.ticketRoutes() {
                 val ticket = controller.createTicket(request)
                 if (ticket.id <= 0) return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Ticket create failed"))
 
-                eventPublisher.publishTicketCreated(request.queue_type_id, emptyList())
-                eventPublisher.publishDepartmentSummaryUpdate(ticket.department_id)
+                val displayIds = controller.getDisplayIdsForQueueType(request.queue_type_id)
+                eventPublisher.notifyHandlersTicketCreated(request.queue_type_id)
+                eventPublisher.notifyDisplayTicketCreated(displayIds)
+                eventPublisher.notifyAdminDepartmentSummary(ticket.department_id)
                 call.respond(HttpStatusCode.OK, ticket)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
@@ -53,10 +57,16 @@ fun Route.ticketRoutes() {
                 }
 
                 val request = call.receive<CallNextRequest>()
+                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
+                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+                }
+
                 val ticket = controller.callNext(request.handler_id)
                 if (ticket.id > 0) {
-                    eventPublisher.publishTicketCalled(emptyList(), ticket.id)
-                    eventPublisher.publishDepartmentSummaryUpdate(ticket.department_id)
+                    val displayIds = controller.getDisplayIdsByHandler(request.handler_id)
+                    eventPublisher.notifyDisplayTicketCalled(displayIds)
+                    eventPublisher.notifyAdminDepartmentSummary(ticket.department_id)
                 }
                 call.respond(HttpStatusCode.OK, ticket)
             } catch (e: Exception) {
@@ -72,7 +82,13 @@ fun Route.ticketRoutes() {
                 }
 
                 val request = call.receive<TicketActionRequest>()
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "IN_SERVICE")
+                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
+                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+                }
+
+                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "IN_SERVICE", request.notes)
+                if (updated) eventPublisher.notifyDisplayTicketCalled(controller.getDisplayIdsByHandler(request.handler_id))
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket set to IN_SERVICE"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
@@ -87,8 +103,13 @@ fun Route.ticketRoutes() {
                 }
 
                 val request = call.receive<TicketActionRequest>()
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "SKIPPED")
-                if (updated) eventPublisher.publishTicketSkipped(emptyList(), request.ticket_id)
+                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
+                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+                }
+
+                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "SKIPPED", request.notes)
+                if (updated) eventPublisher.notifyDisplayTicketSkipped(controller.getDisplayIdsByHandler(request.handler_id))
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket skipped"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
@@ -103,8 +124,13 @@ fun Route.ticketRoutes() {
                 }
 
                 val request = call.receive<TicketActionRequest>()
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "CALLED")
-                if (updated) eventPublisher.publishTicketCalled(emptyList(), request.ticket_id)
+                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
+                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+                }
+
+                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "CALLED", request.notes)
+                if (updated) eventPublisher.notifyDisplayTicketRecalled(controller.getDisplayIdsByHandler(request.handler_id))
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket recalled"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
@@ -119,8 +145,17 @@ fun Route.ticketRoutes() {
                 }
 
                 val request = call.receive<TicketActionRequest>()
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "COMPLETED")
-                if (updated) eventPublisher.publishTicketCompleted(emptyList(), request.ticket_id)
+                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
+                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+                }
+
+                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "COMPLETED", request.notes)
+                if (updated) {
+                    val displayIds = controller.getDisplayIdsByHandler(request.handler_id)
+                    eventPublisher.notifyDisplayTicketCompleted(displayIds)
+                    if (session.department_id != null) eventPublisher.notifyAdminDepartmentSummary(session.department_id)
+                }
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket completed"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
