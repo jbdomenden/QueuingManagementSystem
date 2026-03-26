@@ -20,6 +20,7 @@ RETURNING current_value
 """
 
 const val postTicketQuery = """
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
 INSERT INTO tickets(ticket_number, department_id, queue_type_id, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
 VALUES(?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
 RETURNING id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
@@ -36,6 +37,12 @@ FROM tickets t
 JOIN departments d ON d.id = t.department_id
 JOIN queue_types qt ON qt.id = t.queue_type_id
 WHERE t.id = ?
+=======
+INSERT INTO tickets(ticket_number, department_id, queue_type_id, kiosk_id, status, created_at, last_action_at, updated_at)
+VALUES(?, ?, ?, ?, 'WAITING', NOW(), NOW(), NOW())
+RETURNING id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
+          status, created_at::text, called_at::text, completed_at::text
+>>>>>>> master
 """
 
 const val getDepartmentAndQueueTypeByTicketIdQuery = """
@@ -94,7 +101,10 @@ SET status = 'IN_SERVICE',
     updated_at = NOW()
 WHERE id = ?
   AND assigned_handler_id = ?
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND archived = false
+=======
+>>>>>>> master
 """
 
 const val updateTicketToSkippedQuery = """
@@ -104,7 +114,10 @@ SET status = 'SKIPPED',
     updated_at = NOW()
 WHERE id = ?
   AND assigned_handler_id = ?
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND archived = false
+=======
+>>>>>>> master
 """
 
 const val updateTicketToCalledRecallQuery = """
@@ -114,7 +127,10 @@ SET status = 'CALLED',
     updated_at = NOW()
 WHERE id = ?
   AND assigned_handler_id = ?
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND archived = false
+=======
+>>>>>>> master
 """
 
 const val updateTicketToCompletedQuery = """
@@ -125,11 +141,15 @@ SET status = 'COMPLETED',
     updated_at = NOW()
 WHERE id = ?
   AND assigned_handler_id = ?
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND archived = false
+=======
+>>>>>>> master
 """
 
 const val postTicketLogQuery = "INSERT INTO ticket_logs(ticket_id, action, actor_handler_id, created_at, payload_json) VALUES(?, ?, ?, NOW(), ?)"
 
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
 const val markTicketsArchivedByServiceDateQuery = """
 UPDATE tickets
 SET archived = true,
@@ -195,11 +215,19 @@ SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.ass
        t.created_at::text AS queued_at,
        EXTRACT(EPOCH FROM (NOW() - t.created_at))::bigint AS waiting_seconds,
        NULL::bigint AS served_seconds
+=======
+const val getQueuedTicketsForDisplayQuery = """
+SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+       w.name AS assigned_window_name, t.status, t.created_at::text
+>>>>>>> master
 FROM tickets t
 JOIN queue_types qt ON qt.id = t.queue_type_id
 LEFT JOIN windows w ON w.id = t.assigned_window_id
 WHERE t.status = 'WAITING'
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND t.archived = false
+=======
+>>>>>>> master
   AND EXISTS (
       SELECT 1
       FROM display_board_windows dbw
@@ -212,6 +240,7 @@ ORDER BY t.created_at ASC
 
 const val getNowServingTicketsForDisplayQuery = """
 SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
        w.name AS assigned_window_name, t.status, t.created_at::text,
        t.created_at::text AS queued_at,
        CASE WHEN t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.called_at - t.created_at))::bigint
@@ -221,11 +250,17 @@ SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.ass
          WHEN t.completed_at IS NOT NULL AND t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.called_at))::bigint
          ELSE NULL
        END AS served_seconds
+=======
+       w.name AS assigned_window_name, t.status, t.created_at::text
+>>>>>>> master
 FROM tickets t
 JOIN queue_types qt ON qt.id = t.queue_type_id
 LEFT JOIN windows w ON w.id = t.assigned_window_id
 WHERE t.status IN ('CALLED', 'IN_SERVICE')
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND t.archived = false
+=======
+>>>>>>> master
   AND t.assigned_window_id IN (
       SELECT dbw.window_id
       FROM display_board_windows dbw
@@ -236,6 +271,7 @@ ORDER BY t.called_at DESC NULLS LAST
 
 const val getSkippedTicketsForDisplayQuery = """
 SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.assigned_window_id,
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
        w.name AS assigned_window_name, t.status, t.created_at::text,
        t.created_at::text AS queued_at,
        CASE WHEN t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.called_at - t.created_at))::bigint
@@ -245,11 +281,17 @@ SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.ass
          WHEN t.completed_at IS NOT NULL AND t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.called_at))::bigint
          ELSE NULL
        END AS served_seconds
+=======
+       w.name AS assigned_window_name, t.status, t.created_at::text
+>>>>>>> master
 FROM tickets t
 JOIN queue_types qt ON qt.id = t.queue_type_id
 LEFT JOIN windows w ON w.id = t.assigned_window_id
 WHERE t.status = 'SKIPPED'
+<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
   AND t.archived = false
+=======
+>>>>>>> master
   AND t.assigned_window_id IN (
       SELECT dbw.window_id
       FROM display_board_windows dbw
