@@ -10,10 +10,10 @@ import io.ktor.server.routing.route
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.models.validateLoginRequest
-import marlow.systems.queuingsystem.models.*
+import QueuingManagementSystem.models.*
 
 fun Route.authRoutes() {
-    val authController = _root_ide_package_.QueuingManagementSystem.controllers.AuthController()
+    val authController = QueuingManagementSystem.controllers.AuthController()
     route("/auth") {
         post("/login") {
             try {
@@ -25,7 +25,7 @@ fun Route.authRoutes() {
                 call.respond(HttpStatusCode.OK, response)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError,
-                    _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+                    QueuingManagementSystem.models.GlobalCredentialResponse(
                         500,
                         false,
                         e.message ?: "Internal server error"
@@ -39,7 +39,7 @@ fun Route.authRoutes() {
                 val token = call.request.extractBearerToken()
                 val session = authController.getUserSessionByToken(token)
                 if (session.user_id <= 0) return@get call.respond(HttpStatusCode.Unauthorized,
-                    _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+                    QueuingManagementSystem.models.GlobalCredentialResponse(
                         401,
                         false,
                         "Unauthorized"
@@ -48,7 +48,7 @@ fun Route.authRoutes() {
                 call.respond(HttpStatusCode.OK, session)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError,
-                    _root_ide_package_.QueuingManagementSystem.models.GlobalCredentialResponse(
+                    QueuingManagementSystem.models.GlobalCredentialResponse(
                         500,
                         false,
                         e.message ?: "Internal server error"

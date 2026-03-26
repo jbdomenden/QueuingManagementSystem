@@ -4,11 +4,11 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
-import marlow.systems.queuingsystem.common.UserRole
-import marlow.systems.queuingsystem.common.extractBearerToken
-import marlow.systems.queuingsystem.controllers.AuthController
-import marlow.systems.queuingsystem.controllers.WindowController
-import marlow.systems.queuingsystem.models.*
+import QueuingManagementSystem.common.UserRole
+import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.WindowController
+import QueuingManagementSystem.models.*
 
 fun Route.windowRoutes() {
     val authController = AuthController()

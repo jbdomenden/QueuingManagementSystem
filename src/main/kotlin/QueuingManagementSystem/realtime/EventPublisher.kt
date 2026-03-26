@@ -1,24 +1,48 @@
 package QueuingManagementSystem.realtime
 
-import kotlinx.serialization.json.Json
 import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.controllers.HandlerController
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class EventPublisher {
-    private val handlerController = _root_ide_package_.QueuingManagementSystem.controllers.HandlerController()
-    private val displayController = _root_ide_package_.QueuingManagementSystem.controllers.DisplayController()
+    private val handlerController = HandlerController()
+    private val displayController = DisplayController()
 
-    suspend fun publishNewTicket(queueTypeId: Int, departmentDisplayIds: List<Int>) {
+    suspend fun publishTicketCreated(queueTypeId: Int, departmentDisplayIds: List<Int>) {
+        val payload = "{\"queue_type_id\":$queueTypeId}"
         val handlerIds = handlerController.getActiveHandlersForQueueType(queueTypeId)
         handlerIds.forEach { handlerId ->
-            _root_ide_package_.QueuingManagementSystem.realtime.HandlerSocketManager.notifyHandler(handlerId, "NEW_TICKET_AVAILABLE", "{\"queue_type_id\":$queueTypeId}")
+            HandlerSocketManager.notifyHandler(handlerId, "TICKET_CREATED", payload)
         }
 
-        departmentDisplayIds.forEach { displayId ->
+        publishDisplaySnapshots(departmentDisplayIds)
+        AdminSocketManager.publishSummary("TICKET_CREATED", "Ticket created for queue_type_id=$queueTypeId")
+    }
+
+    suspend fun publishTicketCalled(displayIds: List<Int>, ticketId: Int) {
+        publishDisplaySnapshots(displayIds)
+        AdminSocketManager.publishSummary("TICKET_CALLED", "Ticket called, ticket_id=$ticketId")
+    }
+
+    suspend fun publishTicketSkipped(displayIds: List<Int>, ticketId: Int) {
+        publishDisplaySnapshots(displayIds)
+        AdminSocketManager.publishSummary("TICKET_SKIPPED", "Ticket skipped, ticket_id=$ticketId")
+    }
+
+    suspend fun publishTicketCompleted(displayIds: List<Int>, ticketId: Int) {
+        publishDisplaySnapshots(displayIds)
+        AdminSocketManager.publishSummary("TICKET_COMPLETED", "Ticket completed, ticket_id=$ticketId")
+    }
+
+    suspend fun publishDepartmentSummaryUpdate(departmentId: Int) {
+        AdminSocketManager.publishSummary("DEPARTMENT_SUMMARY_UPDATED", "department_id=$departmentId")
+    }
+
+    private suspend fun publishDisplaySnapshots(displayIds: List<Int>) {
+        displayIds.distinct().forEach { displayId ->
             val snapshot = displayController.getDisplaySnapshot(displayId)
-            _root_ide_package_.QueuingManagementSystem.realtime.DisplaySocketManager.publishDisplayUpdate(displayId, Json.encodeToString(snapshot))
+            DisplaySocketManager.publishDisplayUpdate(displayId, Json.encodeToString(snapshot))
         }
-
-        _root_ide_package_.QueuingManagementSystem.realtime.AdminSocketManager.publishSummary("QUEUE_CHANGED", "Ticket created for queue_type_id=$queueTypeId")
     }
 }

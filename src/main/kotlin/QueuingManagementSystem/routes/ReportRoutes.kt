@@ -3,8 +3,8 @@ package QueuingManagementSystem.routes
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
-import marlow.systems.queuingsystem.controllers.ReportController
-import marlow.systems.queuingsystem.models.GlobalCredentialResponse
+import QueuingManagementSystem.controllers.ReportController
+import QueuingManagementSystem.models.GlobalCredentialResponse
 
 fun Route.reportRoutes() {
     val controller = ReportController()
