@@ -5,7 +5,7 @@ import QueuingManagementSystem.realtime.DisplaySocketManager
 import QueuingManagementSystem.realtime.HandlerSocketManager
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.route
-import io.ktor.server.routing.webSocket
+import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.Frame
 import io.ktor.websocket.readText
 
