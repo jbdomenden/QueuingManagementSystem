@@ -130,13 +130,9 @@ CREATE TABLE IF NOT EXISTS tickets (
     service_started_at TIMESTAMP NULL,
     completed_at TIMESTAMP NULL,
     last_action_at TIMESTAMP NOT NULL DEFAULT NOW(),
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     archived BOOLEAN NOT NULL DEFAULT FALSE,
     archived_at TIMESTAMP NULL
-=======
-    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
->>>>>>> master
 );
 
 CREATE TABLE IF NOT EXISTS ticket_logs (
@@ -159,12 +155,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
-<<<<<<< codex/normalize-and-extend-queuingmanagementsystem-ezqdfz
 CREATE INDEX IF NOT EXISTS idx_tickets_archived ON tickets(archived);
 CREATE INDEX IF NOT EXISTS idx_tickets_service_date ON tickets(service_date);
 CREATE INDEX IF NOT EXISTS idx_tickets_department_id ON tickets(department_id);
-=======
->>>>>>> master
 CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_queue_type_id ON tickets(queue_type_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned_window_id ON tickets(assigned_window_id);

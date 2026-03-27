@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QMS Archived Tickets</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div id="topNav" class="topbar"></div>
+  <div class="container">
+    <div class="grid">
+      <div class="col-4 card">
+        <h3>Archived Filters</h3>
+        <label>Department ID (optional for SUPERADMIN)</label>
+        <input id="departmentId" type="number" />
+        <label>Date From</label>
+        <input id="dateFrom" type="date" />
+        <label>Date To</label>
+        <input id="dateTo" type="date" />
+        <label>Queue Type ID</label>
+        <input id="queueTypeId" type="number" />
+        <label>Status</label>
+        <select id="status">
+          <option value="">All</option>
+          <option value="WAITING">WAITING</option>
+          <option value="CALLED">CALLED</option>
+          <option value="IN_SERVICE">IN_SERVICE</option>
+          <option value="SKIPPED">SKIPPED</option>
+          <option value="COMPLETED">COMPLETED</option>
+        </select>
+        <button id="searchBtn">Search</button>
+      </div>
+
+      <div class="col-8 card">
+        <h3>Debug</h3>
+        <pre id="debugPanel">{}</pre>
+      </div>
+
+      <div class="col-12 card">
+        <h3>Archived Tickets</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th><th>Ticket #</th><th>Dept</th><th>Queue Type</th><th>Status</th><th>Service Date</th><th>Queue Time</th><th>Queued At</th><th>Waiting</th><th>Served</th>
+              </tr>
+            </thead>
+            <tbody id="archivedBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storage.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/archived.js"></script>
+</body>
+</html>
