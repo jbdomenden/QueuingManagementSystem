@@ -15,29 +15,6 @@
   const selectedCompanyTitle = document.getElementById('selectedCompanyTitle');
 
   let selectedCompany = null;
-  let queueTypesForCompany = [];
-
-  function updateDateTime() {
-    const now = new Date();
-    document.getElementById('liveDate').textContent = now.toLocaleDateString();
-    document.getElementById('liveTime').textContent = now.toLocaleTimeString();
-  }
-
-  function renderCompanyTiles(companies) {
-    const bigGrid = document.getElementById('companyBigGrid');
-    const smallGrid = document.getElementById('companySmallGrid');
-
-    const bigCompanies = companies.filter(x => x.displaySize === 'BIG');
-    const smallCompanies = companies.filter(x => x.displaySize === 'SMALL');
-
-    const toCard = (company, sizeClass) => `
-      <button class="company-card ${sizeClass}" data-company-id="${company.id}" data-company-name="${company.companyShortName}">
-        <span class="short-name">${company.companyShortName}</span>
-        <span class="full-name">${company.companyFullName}</span>
-      </button>
-    `;
-
-  let selectedCompany = null;
   let selectedTransaction = null;
   let queueTypesForCompany = [];
 
@@ -103,6 +80,13 @@
   }
 
   function renderTransactions(transactions) {
+    if (!transactions.length) {
+      transactionButtons.innerHTML = '<div class="card"><strong>No active transactions configured for this company.</strong></div>';
+      queueSection.style.display = 'none';
+      selectedTransaction = null;
+      return;
+    }
+
     transactionButtons.innerHTML = transactions.map(t => `
       <button class="transaction-btn" data-transaction-id="${t.id}" data-transaction-name="${t.transactionName}">
         <span class="transaction-name">${t.transactionName}</span>

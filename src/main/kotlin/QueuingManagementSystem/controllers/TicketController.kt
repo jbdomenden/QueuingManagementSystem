@@ -27,21 +27,28 @@ class TicketController {
                 if (request.company_id != null && queueTypeCompanyId != request.company_id) throw IllegalStateException("queue type does not belong to selected company")
 
                 if (request.company_id != null && request.company_transaction_id != null) {
+                    var companyStatus = ""
+                    connection.prepareStatement(getActiveCompanyByIdQuery).use { statement ->
+                        statement.setInt(1, request.company_id)
+                        statement.executeQuery().use { rs -> if (rs.next()) companyStatus = rs.getString("status") }
+                    }
+                    if (companyStatus != "ACTIVE") throw IllegalStateException("company is inactive or not found")
+
                     var ctCompanyId = 0
                     var ctStatus = ""
-                    var companyStatus = ""
+                    var ctCompanyStatus = ""
                     connection.prepareStatement(getCompanyTransactionDetailsByIdQuery).use { statement ->
                         statement.setInt(1, request.company_transaction_id)
                         statement.executeQuery().use { rs ->
                             if (rs.next()) {
                                 ctCompanyId = rs.getInt("company_id")
                                 ctStatus = rs.getString("status")
-                                companyStatus = rs.getString("company_status")
+                                ctCompanyStatus = rs.getString("company_status")
                             }
                         }
                     }
                     if (ctCompanyId <= 0 || ctCompanyId != request.company_id) throw IllegalStateException("invalid company transaction")
-                    if (ctStatus != "ACTIVE" || companyStatus != "ACTIVE") throw IllegalStateException("company transaction is inactive")
+                    if (ctStatus != "ACTIVE" || ctCompanyStatus != "ACTIVE") throw IllegalStateException("company transaction is inactive")
                 }
 
                 var kioskAllowed = false

@@ -226,6 +226,9 @@ pre {
   gap: 12px;
   max-width: 760px;
   margin: 0 auto;
+  max-height: 58vh;
+  overflow-y: auto;
+  padding-right: 6px;
 }
 .transaction-btn {
   background: #ffffff;

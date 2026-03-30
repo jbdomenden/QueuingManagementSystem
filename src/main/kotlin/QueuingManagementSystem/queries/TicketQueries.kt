@@ -11,6 +11,7 @@ WHERE k.id = ?
 """
 
 const val getQueueDailySequenceQuery = "SELECT current_value FROM queue_daily_sequences WHERE queue_type_id = ? AND sequence_date = CURRENT_DATE"
+const val getActiveCompanyByIdQuery = "SELECT id, status FROM companies WHERE id = ?"
 const val upsertQueueDailySequenceQuery = """
 INSERT INTO queue_daily_sequences(queue_type_id, sequence_date, current_value)
 VALUES(?, CURRENT_DATE, 1)
