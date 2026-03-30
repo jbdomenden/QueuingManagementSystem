@@ -73,7 +73,7 @@ class TicketController {
         if (ticket.id <= 0) {
             return TicketCreateResponse(
                 ticket,
-                PrintableTicketModel(0, "", 0, "", 0, "", "", "", "", "", ""),
+                PrintableTicketModel(0, "", 0, "", null, 0, "", "", "", "", "", ""),
                 GlobalCredentialResponse(400, false, "Ticket create failed")
             )
         }
@@ -84,6 +84,7 @@ class TicketController {
                 ticket.ticket_number,
                 ticket.department_id,
                 "",
+                null,
                 ticket.queue_type_id,
                 "",
                 ticket.status,
@@ -105,6 +106,8 @@ class TicketController {
                         val formatted = buildString {
                             appendLine(rs.getString("department_name"))
                             appendLine("Queue Number: ${rs.getString("ticket_number")}")
+                            val companyName = rs.getString("company_name")
+                            if (!companyName.isNullOrBlank()) appendLine("Company: $companyName")
                             appendLine("Queue Type: ${rs.getString("queue_type_name")}")
                             appendLine("Date: ${rs.getString("queue_date")}")
                             append("Time: ${rs.getString("queue_time")}\nPlease wait for your number to be called")
@@ -114,6 +117,7 @@ class TicketController {
                             ticketNumber = rs.getString("ticket_number"),
                             departmentId = rs.getInt("department_id"),
                             departmentName = rs.getString("department_name"),
+                            companyName = rs.getString("company_name"),
                             queueTypeId = rs.getInt("queue_type_id"),
                             queueTypeName = rs.getString("queue_type_name"),
                             status = rs.getString("status"),

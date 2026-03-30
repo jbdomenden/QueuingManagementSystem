@@ -28,13 +28,14 @@ RETURNING id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_wi
 
 const val getTicketPrintableDetailsByIdQuery = """
 SELECT t.id AS ticket_id, t.ticket_number, t.department_id, d.name AS department_name,
-       t.queue_type_id, qt.name AS queue_type_name, t.status,
+       t.queue_type_id, qt.name AS queue_type_name, c.company_full_name AS company_name, t.status,
        TO_CHAR(t.created_at, 'YYYY-MM-DD') AS queue_date,
        TO_CHAR(t.created_at, 'HH24:MI:SS') AS queue_time,
        t.created_at::text AS queued_at
 FROM tickets t
 JOIN departments d ON d.id = t.department_id
 JOIN queue_types qt ON qt.id = t.queue_type_id
+LEFT JOIN companies c ON c.id = qt.company_id
 WHERE t.id = ?
 """
 
