@@ -10,6 +10,7 @@
       ['handler.html', 'Handler'],
       ['admin.html', 'Admin'],
       ['companies.html', 'Companies'],
+      ['company-transactions.html', 'Company Transactions'],
       ['display.html', 'Display'],
       ['archived.html', 'Archived']
     ];

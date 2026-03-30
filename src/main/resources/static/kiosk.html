@@ -8,7 +8,8 @@
 </head>
 <body class="kiosk-body">
   <div class="kiosk-shell">
-    <header class="kiosk-header">
+    <header class="kiosk-header kiosk-header-3col">
+      <div id="selectedCompanyBadge" class="kiosk-company-label">&nbsp;</div>
       <h1>QUEUING SYSTEM</h1>
       <div class="kiosk-datetime">
         <div id="liveDate"></div>
@@ -22,8 +23,12 @@
         <div id="companySmallGrid" class="company-grid small-grid"></div>
       </section>
 
+      <section id="transactionSection" style="display:none;">
+        <div id="transactionButtons" class="transaction-list"></div>
+      </section>
+
       <section id="queueSection" class="card" style="display:none; margin-top: 16px;">
-        <h3 id="selectedCompanyTitle">Queue Types</h3>
+        <h3 id="selectedTransactionTitle">Queue Types</h3>
         <label>Queue Type</label>
         <select id="queueTypeId"></select>
         <button id="createTicketBtn" class="success">Create Ticket</button>
@@ -37,10 +42,11 @@
       </section>
     </main>
 
-    <footer class="kiosk-footer">
+    <footer class="kiosk-footer kiosk-footer-controls">
+      <button id="backBtn" class="secondary">Back</button>
       <button id="refreshBtn" class="secondary">Refresh</button>
-      <p>Please select your company</p>
-      <div></div>
+      <button id="homeBtn" class="secondary">Home</button>
+      <p id="footerInstruction">Please select your company</p>
     </footer>
   </div>
 

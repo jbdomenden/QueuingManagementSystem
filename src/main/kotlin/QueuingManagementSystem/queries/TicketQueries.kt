@@ -1,6 +1,6 @@
 package QueuingManagementSystem.queries
 
-const val getQueueTypeWithDepartmentByIdQuery = "SELECT id, department_id, prefix FROM queue_types WHERE id = ? AND is_active = true"
+const val getQueueTypeWithDepartmentByIdQuery = "SELECT id, department_id, prefix, company_id FROM queue_types WHERE id = ? AND is_active = true"
 const val getKioskByIdAndDepartmentQueueTypeQuery = """
 SELECT k.id
 FROM kiosks k
@@ -19,16 +19,28 @@ DO UPDATE SET current_value = queue_daily_sequences.current_value + 1
 RETURNING current_value
 """
 
+const val getCompanyTransactionDetailsByIdQuery = """
+SELECT ct.id,
+       ct.company_id,
+       ct.transaction_name,
+       ct.status,
+       c.status AS company_status
+FROM company_transactions ct
+JOIN companies c ON c.id = ct.company_id
+WHERE ct.id = ?
+"""
+
 const val postTicketQuery = """
-INSERT INTO tickets(ticket_number, department_id, queue_type_id, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
-VALUES(?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
-RETURNING id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
+INSERT INTO tickets(ticket_number, department_id, queue_type_id, company_transaction_id, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
+VALUES(?, ?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
+RETURNING id, ticket_number, department_id, queue_type_id, company_transaction_id, kiosk_id, assigned_window_id, assigned_handler_id,
           status, created_at::text, called_at::text, completed_at::text
 """
 
 const val getTicketPrintableDetailsByIdQuery = """
 SELECT t.id AS ticket_id, t.ticket_number, t.department_id, d.name AS department_name,
-       t.queue_type_id, qt.name AS queue_type_name, c.company_full_name AS company_name, t.status,
+       t.queue_type_id, qt.name AS queue_type_name, c.company_full_name AS company_name,
+       ct.transaction_name AS company_transaction_name, t.status,
        TO_CHAR(t.created_at, 'YYYY-MM-DD') AS queue_date,
        TO_CHAR(t.created_at, 'HH24:MI:SS') AS queue_time,
        t.created_at::text AS queued_at
@@ -36,6 +48,7 @@ FROM tickets t
 JOIN departments d ON d.id = t.department_id
 JOIN queue_types qt ON qt.id = t.queue_type_id
 LEFT JOIN companies c ON c.id = qt.company_id
+LEFT JOIN company_transactions ct ON ct.id = t.company_transaction_id
 WHERE t.id = ?
 """
 
@@ -46,7 +59,7 @@ WHERE t.id = ?
 """
 
 const val getLiveTicketsByDepartmentQuery = """
-SELECT id, ticket_number, department_id, queue_type_id, kiosk_id, assigned_window_id, assigned_handler_id,
+SELECT id, ticket_number, department_id, queue_type_id, company_transaction_id, kiosk_id, assigned_window_id, assigned_handler_id,
        status, created_at::text, called_at::text, completed_at::text
 FROM tickets
 WHERE department_id = ?
@@ -83,7 +96,7 @@ SET status = 'CALLED',
     updated_at = NOW()
 FROM candidate
 WHERE t.id = candidate.id
-RETURNING t.id, t.ticket_number, t.department_id, t.queue_type_id, t.kiosk_id, t.assigned_window_id, t.assigned_handler_id,
+RETURNING t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_transaction_id, t.kiosk_id, t.assigned_window_id, t.assigned_handler_id,
           t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 """
 

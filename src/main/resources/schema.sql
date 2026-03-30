@@ -72,6 +72,19 @@ CREATE TABLE IF NOT EXISTS queue_types (
     UNIQUE(department_id, code)
 );
 
+
+CREATE TABLE IF NOT EXISTS company_transactions (
+    id SERIAL PRIMARY KEY,
+    company_id INT NOT NULL REFERENCES companies(id),
+    transaction_code VARCHAR(100) NOT NULL,
+    transaction_name VARCHAR(255) NOT NULL,
+    transaction_subtitle VARCHAR(255) NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS kiosks (
     id SERIAL PRIMARY KEY,
     department_id INT NOT NULL REFERENCES departments(id),
@@ -133,6 +146,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     ticket_number VARCHAR(50) NOT NULL UNIQUE,
     department_id INT NOT NULL REFERENCES departments(id),
     queue_type_id INT NOT NULL REFERENCES queue_types(id),
+    company_transaction_id INT NULL REFERENCES company_transactions(id),
     kiosk_id INT NULL REFERENCES kiosks(id),
     assigned_window_id INT NULL REFERENCES windows(id),
     assigned_handler_id INT NULL REFERENCES handlers(id),
@@ -187,3 +201,5 @@ CREATE INDEX IF NOT EXISTS idx_window_queue_types_queue_type ON window_queue_typ
 
 
 ALTER TABLE queue_types ADD COLUMN IF NOT EXISTS company_id INT NULL REFERENCES companies(id);
+
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS company_transaction_id INT NULL REFERENCES company_transactions(id);
