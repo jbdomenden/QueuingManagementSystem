@@ -19,6 +19,8 @@
   const createBtn = document.getElementById('createTicketBtn');
   const printable = document.getElementById('printablePanel');
   const printBtn = document.getElementById('printBtn');
+  const queueSection = document.getElementById('queueSection');
+  const selectedCompanyTitle = document.getElementById('selectedCompanyTitle');
 
   let selectedCompany = null;
   let selectedTransaction = null;
