@@ -12,16 +12,37 @@ class TicketController {
             try {
                 var departmentId = 0
                 var prefix = ""
+                var queueTypeCompanyId: Int? = null
                 connection.prepareStatement(getQueueTypeWithDepartmentByIdQuery).use { statement ->
                     statement.setInt(1, request.queue_type_id)
                     statement.executeQuery().use { rs ->
                         if (rs.next()) {
                             departmentId = rs.getInt("department_id")
                             prefix = rs.getString("prefix")
+                            queueTypeCompanyId = rs.getInt("company_id").let { if (rs.wasNull()) null else it }
                         }
                     }
                 }
                 if (departmentId == 0) throw IllegalStateException("queue type not found")
+                if (request.company_id != null && queueTypeCompanyId != request.company_id) throw IllegalStateException("queue type does not belong to selected company")
+
+                if (request.company_id != null && request.company_transaction_id != null) {
+                    var ctCompanyId = 0
+                    var ctStatus = ""
+                    var companyStatus = ""
+                    connection.prepareStatement(getCompanyTransactionDetailsByIdQuery).use { statement ->
+                        statement.setInt(1, request.company_transaction_id)
+                        statement.executeQuery().use { rs ->
+                            if (rs.next()) {
+                                ctCompanyId = rs.getInt("company_id")
+                                ctStatus = rs.getString("status")
+                                companyStatus = rs.getString("company_status")
+                            }
+                        }
+                    }
+                    if (ctCompanyId <= 0 || ctCompanyId != request.company_id) throw IllegalStateException("invalid company transaction")
+                    if (ctStatus != "ACTIVE" || companyStatus != "ACTIVE") throw IllegalStateException("company transaction is inactive")
+                }
 
                 var kioskAllowed = false
                 connection.prepareStatement(getKioskByIdAndDepartmentQueueTypeQuery).use { statement ->
@@ -38,12 +59,24 @@ class TicketController {
                 }
 
                 val ticketNumber = "$prefix-${sequence.toString().padStart(3, '0')}"
-                var ticket = TicketModel(0, "", 0, 0, null, null, null, "", "")
+                var ticket = TicketModel(
+                    id = 0,
+                    ticket_number = "",
+                    department_id = 0,
+                    queue_type_id = 0,
+                    company_transaction_id = null,
+                    kiosk_id = null,
+                    assigned_window_id = null,
+                    assigned_handler_id = null,
+                    status = "",
+                    created_at = ""
+                )
                 connection.prepareStatement(postTicketQuery).use { statement ->
                     statement.setString(1, ticketNumber)
                     statement.setInt(2, departmentId)
                     statement.setInt(3, request.queue_type_id)
-                    statement.setInt(4, request.kiosk_id)
+                    if (request.company_transaction_id == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, request.company_transaction_id)
+                    statement.setInt(5, request.kiosk_id)
                     statement.executeQuery().use { rs -> if (rs.next()) ticket = mapTicket(rs) }
                 }
 
@@ -53,7 +86,7 @@ class TicketController {
                     statement.setInt(1, ticket.id)
                     statement.setString(2, "CREATED")
                     statement.setNull(3, java.sql.Types.INTEGER)
-                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id}}")
+                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id},\"company_id\":${request.company_id},\"company_transaction_id\":${request.company_transaction_id}}")
                     statement.executeUpdate()
                 }
 
@@ -61,7 +94,18 @@ class TicketController {
                 return ticket
             } catch (e: Exception) {
                 connection.rollback()
-                return TicketModel(0, "", 0, 0, null, null, null, "", "")
+                return TicketModel(
+                    id = 0,
+                    ticket_number = "",
+                    department_id = 0,
+                    queue_type_id = 0,
+                    company_transaction_id = null,
+                    kiosk_id = null,
+                    assigned_window_id = null,
+                    assigned_handler_id = null,
+                    status = "",
+                    created_at = ""
+                )
             } finally {
                 connection.autoCommit = true
             }
@@ -73,7 +117,7 @@ class TicketController {
         if (ticket.id <= 0) {
             return TicketCreateResponse(
                 ticket,
-                PrintableTicketModel(0, "", 0, "", 0, "", "", "", "", "", ""),
+                PrintableTicketModel(0, "", 0, "", null, null, 0, "", "", "", "", "", ""),
                 GlobalCredentialResponse(400, false, "Ticket create failed")
             )
         }
@@ -84,6 +128,8 @@ class TicketController {
                 ticket.ticket_number,
                 ticket.department_id,
                 "",
+                null,
+                null,
                 ticket.queue_type_id,
                 "",
                 ticket.status,
@@ -105,6 +151,10 @@ class TicketController {
                         val formatted = buildString {
                             appendLine(rs.getString("department_name"))
                             appendLine("Queue Number: ${rs.getString("ticket_number")}")
+                            val companyName = rs.getString("company_name")
+                            if (!companyName.isNullOrBlank()) appendLine("Company: $companyName")
+                            val transactionName = rs.getString("company_transaction_name")
+                            if (!transactionName.isNullOrBlank()) appendLine("Transaction: $transactionName")
                             appendLine("Queue Type: ${rs.getString("queue_type_name")}")
                             appendLine("Date: ${rs.getString("queue_date")}")
                             append("Time: ${rs.getString("queue_time")}\nPlease wait for your number to be called")
@@ -114,6 +164,8 @@ class TicketController {
                             ticketNumber = rs.getString("ticket_number"),
                             departmentId = rs.getInt("department_id"),
                             departmentName = rs.getString("department_name"),
+                            companyName = rs.getString("company_name"),
+                            companyTransactionName = rs.getString("company_transaction_name"),
                             queueTypeId = rs.getInt("queue_type_id"),
                             queueTypeName = rs.getString("queue_type_name"),
                             status = rs.getString("status"),
@@ -259,7 +311,18 @@ class TicketController {
                 connection.autoCommit = true
             }
         }
-        return TicketModel(0, "", 0, 0, null, null, null, "", "")
+        return TicketModel(
+            id = 0,
+            ticket_number = "",
+            department_id = 0,
+            queue_type_id = 0,
+            company_transaction_id = null,
+            kiosk_id = null,
+            assigned_window_id = null,
+            assigned_handler_id = null,
+            status = "",
+            created_at = ""
+        )
     }
 
     fun updateTicketStatus(ticketId: Int, handlerId: Int, action: String, notes: String? = null): Boolean {
@@ -357,6 +420,7 @@ WHERE id = ?
             ticket_number = rs.getString("ticket_number"),
             department_id = rs.getInt("department_id"),
             queue_type_id = rs.getInt("queue_type_id"),
+            company_transaction_id = rs.getInt("company_transaction_id").let { if (rs.wasNull()) null else it },
             kiosk_id = rs.getInt("kiosk_id").let { if (rs.wasNull()) null else it },
             assigned_window_id = rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
             assigned_handler_id = rs.getInt("assigned_handler_id").let { if (rs.wasNull()) null else it },
