@@ -113,8 +113,16 @@ fun Route.ticketRoutes() {
         get("/live/{departmentId}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
                 val departmentId = call.parameters["departmentId"]?.toIntOrNull() ?: 0
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != departmentId) return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
+                if (departmentId <= 0) {
+                    return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "departmentId is required"))
+                }
+                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != departmentId) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
+                }
                 call.respond(HttpStatusCode.OK, ListResponse(controller.getLiveTickets(departmentId), GlobalCredentialResponse(200, true, "OK")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))

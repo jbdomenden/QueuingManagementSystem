@@ -4,13 +4,18 @@ import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.controllers.HandlerController
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.parseToJsonElement
 
 class EventPublisher {
     private val handlerController = HandlerController()
     private val displayController = DisplayController()
 
     suspend fun notifyHandlersTicketCreated(queueTypeId: Int) {
-        val payload = "{\"queue_type_id\":$queueTypeId}"
+        val payload = buildJsonObject {
+            put("queue_type_id", queueTypeId)
+        }
         val handlerIds = handlerController.getActiveHandlersForQueueType(queueTypeId)
         handlerIds.forEach { handlerId ->
             HandlerSocketManager.notifyHandler(handlerId, "TICKET_CREATED", payload)
@@ -38,7 +43,10 @@ class EventPublisher {
     }
 
     suspend fun notifyAdminDepartmentSummary(departmentId: Int) {
-        AdminSocketManager.publishSummary("DEPARTMENT_SUMMARY_UPDATED", "department_id=$departmentId")
+        AdminSocketManager.publishSummary(
+            "DEPARTMENT_SUMMARY_UPDATED",
+            buildJsonObject { put("department_id", departmentId) }
+        )
     }
 
     suspend fun publishTicketCreated(queueTypeId: Int, departmentDisplayIds: List<Int>) {
@@ -48,17 +56,17 @@ class EventPublisher {
 
     suspend fun publishTicketCalled(displayIds: List<Int>, ticketId: Int) {
         notifyDisplayTicketCalled(displayIds)
-        AdminSocketManager.publishSummary("TICKET_CALLED", "ticket_id=$ticketId")
+        AdminSocketManager.publishSummary("TICKET_CALLED", buildJsonObject { put("ticket_id", ticketId) })
     }
 
     suspend fun publishTicketSkipped(displayIds: List<Int>, ticketId: Int) {
         notifyDisplayTicketSkipped(displayIds)
-        AdminSocketManager.publishSummary("TICKET_SKIPPED", "ticket_id=$ticketId")
+        AdminSocketManager.publishSummary("TICKET_SKIPPED", buildJsonObject { put("ticket_id", ticketId) })
     }
 
     suspend fun publishTicketCompleted(displayIds: List<Int>, ticketId: Int) {
         notifyDisplayTicketCompleted(displayIds)
-        AdminSocketManager.publishSummary("TICKET_COMPLETED", "ticket_id=$ticketId")
+        AdminSocketManager.publishSummary("TICKET_COMPLETED", buildJsonObject { put("ticket_id", ticketId) })
     }
 
     suspend fun publishDepartmentSummaryUpdate(departmentId: Int) {
@@ -68,7 +76,8 @@ class EventPublisher {
     private suspend fun publishDisplaySnapshots(displayIds: List<Int>, event: String) {
         displayIds.distinct().forEach { displayId ->
             val snapshot = displayController.getDisplaySnapshot(displayId)
-            DisplaySocketManager.publishDisplayUpdate(displayId, event, Json.encodeToString(snapshot))
+            val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
+            DisplaySocketManager.publishDisplayUpdate(displayId, event, payload)
         }
     }
 }

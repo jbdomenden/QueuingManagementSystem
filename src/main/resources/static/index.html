@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QMS Login</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div class="topbar">
+    <strong>QueuingManagementSystem</strong>
+    <span class="spacer"></span>
+    <a href="/dashboard.html">Dashboard</a>
+  </div>
+
+  <div class="container">
+    <div class="grid">
+      <div class="col-4 card">
+        <h3>Login</h3>
+        <form id="loginForm">
+          <label>Username</label>
+          <input id="username" required />
+          <label>Password</label>
+          <input id="password" type="password" required />
+          <button type="submit">Login</button>
+          <div id="loginMessage" style="color:#dc2626;font-weight:700"></div>
+        </form>
+      </div>
+      <div class="col-8 card">
+        <h3>Debug</h3>
+        <p class="small">Shows last auth request/response payload.</p>
+        <pre id="debugPanel">{}</pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storage.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/auth.js"></script>
+</body>
+</html>

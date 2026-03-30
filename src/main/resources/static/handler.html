@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QMS Handler</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div id="topNav" class="topbar"></div>
+  <div class="container">
+    <div class="grid">
+      <div class="col-4 card">
+        <h3>Session</h3>
+        <label>Department ID (for live counters)</label>
+        <input id="departmentId" type="number" />
+        <label>Handler ID</label>
+        <input id="handlerId" type="number" />
+        <label>Window ID</label>
+        <input id="windowId" type="number" />
+        <button id="startSessionBtn" class="success">Start Session</button>
+        <button id="endSessionBtn" class="danger">End Session</button>
+        <h4>Active Session</h4>
+        <pre id="activeSession">{}</pre>
+      </div>
+
+      <div class="col-4 card">
+        <h3>Ticket Lifecycle</h3>
+        <button id="callNextBtn">Call Next</button>
+        <label>Notes</label>
+        <textarea id="notes"></textarea>
+        <button id="startServiceBtn" class="success">Start Service</button>
+        <button id="skipBtn" class="warn">Skip</button>
+        <button id="recallBtn" class="secondary">Recall</button>
+        <button id="completeBtn" class="success">Complete</button>
+      </div>
+
+      <div class="col-4 card">
+        <h3>Current Active Ticket</h3>
+        <div id="activeTicket"><em>No active ticket selected</em></div>
+      </div>
+
+      <div class="col-12 card">
+        <h3>Live Counters (Polling)</h3>
+        <div id="liveCounters"></div>
+      </div>
+
+      <div class="col-6 card">
+        <h3>Handler WebSocket Events</h3>
+        <pre id="wsEvents"></pre>
+      </div>
+
+      <div class="col-6 card">
+        <h3>Debug</h3>
+        <pre id="debugPanel">{}</pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storage.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/ws.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/handler.js"></script>
+</body>
+</html>

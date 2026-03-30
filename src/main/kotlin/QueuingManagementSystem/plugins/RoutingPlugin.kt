@@ -14,11 +14,19 @@ import QueuingManagementSystem.routes.ticketRoutes
 import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
 import io.ktor.server.application.Application
+import io.ktor.server.http.content.staticResources
+import io.ktor.server.response.respondRedirect
+import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
-import QueuingManagementSystem.routes.*
 
 fun Application.configureRouting() {
     routing {
+        get("/") {
+            call.respondRedirect("/kiosk.html")
+        }
+
+        staticResources("", "static")
+
         authRoutes()
         departmentRoutes()
         userRoutes()
