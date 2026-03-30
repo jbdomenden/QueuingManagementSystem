@@ -32,6 +32,8 @@ class CompanyTransactionController {
                                 transactionCode = rs.getString("transaction_code"),
                                 transactionName = rs.getString("transaction_name"),
                                 transactionSubtitle = rs.getString("transaction_subtitle"),
+                                requiresCrewValidation = rs.getBoolean("requires_crew_validation"),
+                                inputMode = rs.getString("input_mode"),
                                 sortOrder = rs.getInt("sort_order")
                             )
                         )
@@ -59,8 +61,10 @@ class CompanyTransactionController {
                 statement.setString(2, request.transactionCode)
                 statement.setString(3, request.transactionName)
                 statement.setString(4, request.transactionSubtitle)
-                statement.setInt(5, request.sortOrder)
-                statement.setString(6, request.status)
+                statement.setBoolean(5, request.requiresCrewValidation)
+                statement.setString(6, request.inputMode)
+                statement.setInt(7, request.sortOrder)
+                statement.setString(8, request.status)
                 statement.executeQuery().use { rs -> if (rs.next()) return rs.getInt("id") }
             }
         }
@@ -74,9 +78,11 @@ class CompanyTransactionController {
                 statement.setString(2, request.transactionCode)
                 statement.setString(3, request.transactionName)
                 statement.setString(4, request.transactionSubtitle)
-                statement.setInt(5, request.sortOrder)
-                statement.setString(6, request.status)
-                statement.setInt(7, companyTransactionIdParam)
+                statement.setBoolean(5, request.requiresCrewValidation)
+                statement.setString(6, request.inputMode)
+                statement.setInt(7, request.sortOrder)
+                statement.setString(8, request.status)
+                statement.setInt(9, companyTransactionIdParam)
                 return statement.executeUpdate()
             }
         }
@@ -108,6 +114,8 @@ class CompanyTransactionController {
             transactionCode = rs.getString("transaction_code"),
             transactionName = rs.getString("transaction_name"),
             transactionSubtitle = rs.getString("transaction_subtitle"),
+            requiresCrewValidation = rs.getBoolean("requires_crew_validation"),
+            inputMode = rs.getString("input_mode"),
             sortOrder = rs.getInt("sort_order"),
             status = rs.getString("status"),
             createdAt = rs.getString("created_at"),

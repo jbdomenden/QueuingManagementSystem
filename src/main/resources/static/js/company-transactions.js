@@ -11,6 +11,8 @@
       transactionCode: document.getElementById('transactionCode').value.trim(),
       transactionName: document.getElementById('transactionName').value.trim(),
       transactionSubtitle: document.getElementById('transactionSubtitle').value.trim() || null,
+      requiresCrewValidation: document.getElementById('requiresCrewValidation').value === 'true',
+      inputMode: document.getElementById('inputMode').value,
       sortOrder: Number(document.getElementById('transactionSortOrder').value || 0),
       status: document.getElementById('transactionStatus').value
     };
@@ -27,6 +29,8 @@
     document.getElementById('transactionCode').value = '';
     document.getElementById('transactionName').value = '';
     document.getElementById('transactionSubtitle').value = '';
+    document.getElementById('requiresCrewValidation').value = 'false';
+    document.getElementById('inputMode').value = 'NONE';
     document.getElementById('transactionSortOrder').value = 0;
     document.getElementById('transactionStatus').value = 'ACTIVE';
   }
@@ -74,6 +78,8 @@
         document.getElementById('transactionCode').value = item.transactionCode;
         document.getElementById('transactionName').value = item.transactionName;
         document.getElementById('transactionSubtitle').value = item.transactionSubtitle || '';
+        document.getElementById('requiresCrewValidation').value = String(item.requiresCrewValidation);
+        document.getElementById('inputMode').value = item.inputMode || 'NONE';
         document.getElementById('transactionSortOrder').value = item.sortOrder;
         document.getElementById('transactionStatus').value = item.status;
       };

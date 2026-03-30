@@ -6,6 +6,8 @@ SELECT ct.id,
        ct.transaction_code,
        ct.transaction_name,
        ct.transaction_subtitle,
+       ct.requires_crew_validation,
+       ct.input_mode,
        ct.sort_order,
        ct.status,
        ct.created_at::text,
@@ -21,6 +23,8 @@ SELECT ct.id,
        ct.transaction_code,
        ct.transaction_name,
        ct.transaction_subtitle,
+       ct.requires_crew_validation,
+       ct.input_mode,
        ct.sort_order
 FROM company_transactions ct
 JOIN companies c ON c.id = ct.company_id
@@ -36,6 +40,8 @@ SELECT ct.id,
        ct.transaction_code,
        ct.transaction_name,
        ct.transaction_subtitle,
+       ct.requires_crew_validation,
+       ct.input_mode,
        ct.sort_order,
        ct.status,
        ct.created_at::text,
@@ -45,8 +51,8 @@ WHERE ct.id = ?
 """
 
 const val postCompanyTransactionQuery = """
-INSERT INTO company_transactions(company_id, transaction_code, transaction_name, transaction_subtitle, sort_order, status, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())
+INSERT INTO company_transactions(company_id, transaction_code, transaction_name, transaction_subtitle, requires_crew_validation, input_mode, sort_order, status, created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
 RETURNING id
 """
 
@@ -56,6 +62,8 @@ SET company_id = ?,
     transaction_code = ?,
     transaction_name = ?,
     transaction_subtitle = ?,
+    requires_crew_validation = ?,
+    input_mode = ?,
     sort_order = ?,
     status = ?,
     updated_at = NOW()
@@ -81,6 +89,8 @@ SELECT ct.id,
        ct.company_id,
        ct.transaction_name,
        ct.status,
+       ct.requires_crew_validation,
+       ct.input_mode,
        c.status AS company_status
 FROM company_transactions ct
 JOIN companies c ON c.id = ct.company_id

@@ -20,6 +20,18 @@
         <input id="transactionName" />
         <label>Subtitle (optional)</label>
         <input id="transactionSubtitle" />
+        <label>Requires Crew Validation</label>
+        <select id="requiresCrewValidation">
+          <option value="false">No</option>
+          <option value="true">Yes</option>
+        </select>
+        <label>Input Mode</label>
+        <select id="inputMode">
+          <option value="NONE">NONE</option>
+          <option value="KEYPAD">KEYPAD</option>
+          <option value="RFID">RFID</option>
+          <option value="BOTH">BOTH</option>
+        </select>
         <label>Sort Order</label>
         <input id="transactionSortOrder" type="number" min="0" value="0" />
         <label>Status</label>

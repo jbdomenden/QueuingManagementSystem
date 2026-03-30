@@ -256,3 +256,31 @@ pre {
 .kiosk-footer-controls p {
   text-align: right;
 }
+
+.crew-input-panel {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.crew-display {
+  background: #0b0b0b;
+  color: #22c55e;
+  font-size: 32px;
+  font-weight: 800;
+  text-align: right;
+  letter-spacing: 2px;
+}
+.keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(90px, 1fr));
+  gap: 10px;
+}
+.keypad-key {
+  font-size: 22px;
+  font-weight: 800;
+  padding: 14px;
+}
+.rfid-capture {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
