@@ -5,7 +5,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 data class TicketCreateRequest(
     val kiosk_id: Int,
-    val queue_type_id: Int
+    val queue_type_id: Int? = null,
+    val company_id: Int? = null,
+    val company_transaction_id: Int? = null,
+    val destination_id: Int? = null,
+    val crew_identifier: String? = null,
+    val crew_identifier_type: String? = null,
+    val crew_name: String? = null
 )
 
 @Serializable
@@ -32,6 +38,12 @@ data class TicketModel(
     val ticket_number: String,
     val department_id: Int,
     val queue_type_id: Int,
+    val company_id: Int? = null,
+    val company_transaction_id: Int? = null,
+    val destination_id: Int? = null,
+    val crew_identifier: String? = null,
+    val crew_identifier_type: String? = null,
+    val crew_name: String? = null,
     val kiosk_id: Int?,
     val assigned_window_id: Int?,
     val assigned_handler_id: Int?,
@@ -54,6 +66,9 @@ data class PrintableTicketModel(
     val ticketNumber: String,
     val departmentId: Int,
     val departmentName: String,
+    val companyName: String? = null,
+    val companyTransactionName: String? = null,
+    val destinationName: String? = null,
     val queueTypeId: Int,
     val queueTypeName: String,
     val status: String,
@@ -88,6 +103,12 @@ data class ArchivedTicketModel(
 fun TicketCreateRequest.validateTicketCreateRequest(): MutableList<GlobalCredentialResponse> {
     val errors = mutableListOf<GlobalCredentialResponse>()
     if (kiosk_id <= 0) errors.add(GlobalCredentialResponse(400, false, "kiosk_id is required"))
-    if (queue_type_id <= 0) errors.add(GlobalCredentialResponse(400, false, "queue_type_id is required"))
+    if (queue_type_id == null && destination_id == null) errors.add(GlobalCredentialResponse(400, false, "queue_type_id or destination_id is required"))
+    if (queue_type_id != null && queue_type_id <= 0) errors.add(GlobalCredentialResponse(400, false, "queue_type_id must be greater than 0"))
+    if (destination_id != null && destination_id <= 0) errors.add(GlobalCredentialResponse(400, false, "destination_id must be greater than 0"))
+    if (company_id != null && company_id <= 0) errors.add(GlobalCredentialResponse(400, false, "company_id must be greater than 0"))
+    if (company_transaction_id != null && company_transaction_id <= 0) errors.add(GlobalCredentialResponse(400, false, "company_transaction_id must be greater than 0"))
+    if ((company_id == null) != (company_transaction_id == null)) errors.add(GlobalCredentialResponse(400, false, "company_id and company_transaction_id must both be provided together"))
+    if (crew_identifier_type != null && crew_identifier_type !in listOf("KEYPAD", "RFID")) errors.add(GlobalCredentialResponse(400, false, "crew_identifier_type must be KEYPAD or RFID"))
     return errors
 }
