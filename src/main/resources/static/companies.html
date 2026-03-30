@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QMS Companies</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body>
+  <div id="topNav" class="topbar"></div>
+  <div class="container">
+    <div class="grid">
+      <div class="col-4 card">
+        <h3 id="formTitle">Create Company</h3>
+        <label>Company Code</label>
+        <input id="companyCode" />
+        <label>Short Name</label>
+        <input id="companyShortName" />
+        <label>Full Name</label>
+        <input id="companyFullName" />
+        <label>Display Size</label>
+        <select id="displaySize">
+          <option value="BIG">BIG</option>
+          <option value="SMALL">SMALL</option>
+        </select>
+        <label>Sort Order</label>
+        <input id="sortOrder" type="number" min="0" value="0" />
+        <label>Status</label>
+        <select id="status">
+          <option value="ACTIVE">ACTIVE</option>
+          <option value="INACTIVE">INACTIVE</option>
+        </select>
+        <button id="saveBtn">Save Company</button>
+        <button id="cancelEditBtn" class="secondary">Cancel Edit</button>
+      </div>
+      <div class="col-8 card">
+        <h3>Companies</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Short Name</th>
+                <th>Full Name</th>
+                <th>Display Size</th>
+                <th>Sort Order</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="companiesTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="col-12 card">
+        <h3>Debug</h3>
+        <pre id="debugPanel">{}</pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/storage.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+  <script src="/js/companies.js"></script>
+</body>
+</html>

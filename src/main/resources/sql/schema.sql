@@ -48,15 +48,41 @@ CREATE TABLE IF NOT EXISTS handlers (
     UNIQUE(user_id)
 );
 
+CREATE TABLE IF NOT EXISTS companies (
+    id SERIAL PRIMARY KEY,
+    company_code VARCHAR(50) NOT NULL UNIQUE,
+    company_short_name VARCHAR(100) NOT NULL,
+    company_full_name VARCHAR(255) NOT NULL,
+    display_size VARCHAR(20) NOT NULL CHECK (display_size IN ('BIG', 'SMALL')),
+    sort_order INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS queue_types (
     id SERIAL PRIMARY KEY,
     department_id INT NOT NULL REFERENCES departments(id),
+    company_id INT NULL REFERENCES companies(id),
     name VARCHAR(255) NOT NULL,
     code VARCHAR(50) NOT NULL,
     prefix VARCHAR(10) NOT NULL,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     UNIQUE(department_id, code)
+);
+
+
+CREATE TABLE IF NOT EXISTS company_transactions (
+    id SERIAL PRIMARY KEY,
+    company_id INT NOT NULL REFERENCES companies(id),
+    transaction_code VARCHAR(100) NOT NULL,
+    transaction_name VARCHAR(255) NOT NULL,
+    transaction_subtitle VARCHAR(255) NULL,
+    sort_order INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'INACTIVE')),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS kiosks (
@@ -120,6 +146,7 @@ CREATE TABLE IF NOT EXISTS tickets (
     ticket_number VARCHAR(50) NOT NULL UNIQUE,
     department_id INT NOT NULL REFERENCES departments(id),
     queue_type_id INT NOT NULL REFERENCES queue_types(id),
+    company_transaction_id INT NULL REFERENCES company_transactions(id),
     kiosk_id INT NULL REFERENCES kiosks(id),
     assigned_window_id INT NULL REFERENCES windows(id),
     assigned_handler_id INT NULL REFERENCES handlers(id),
@@ -171,3 +198,8 @@ CREATE INDEX IF NOT EXISTS idx_handler_sessions_handler_active ON handler_sessio
 CREATE INDEX IF NOT EXISTS idx_display_board_windows_display ON display_board_windows(display_board_id);
 CREATE INDEX IF NOT EXISTS idx_window_queue_types_window_id ON window_queue_types(window_id);
 CREATE INDEX IF NOT EXISTS idx_window_queue_types_queue_type ON window_queue_types(queue_type_id);
+
+
+ALTER TABLE queue_types ADD COLUMN IF NOT EXISTS company_id INT NULL REFERENCES companies(id);
+
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS company_transaction_id INT NULL REFERENCES company_transactions(id);
