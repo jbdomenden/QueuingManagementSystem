@@ -56,6 +56,24 @@ fun Route.queueTypeRoutes() {
                 e.message ?: "Internal server error"
             )
         ) } }
+        get("/company/{companyId}") { try { val companyId = call.parameters["companyId"]?.toIntOrNull() ?: 0; if (companyId <= 0) return@get call.respond(HttpStatusCode.BadRequest,
+            QueuingManagementSystem.models.GlobalCredentialResponse(
+                400,
+                false,
+                "companyId is required"
+            )
+        ); call.respond(HttpStatusCode.OK,
+            QueuingManagementSystem.models.ListResponse(
+                controller.getQueueTypesByCompanyId(companyId),
+                QueuingManagementSystem.models.GlobalCredentialResponse(200, true, "OK")
+            )
+        ) } catch (e: Exception) { call.respond(HttpStatusCode.InternalServerError,
+            QueuingManagementSystem.models.GlobalCredentialResponse(
+                500,
+                false,
+                e.message ?: "Internal server error"
+            )
+        ) } }
         get("/list/{departmentId}") { try { val session = authController.getUserSessionByToken(call.request.extractBearerToken()); val departmentId = call.parameters["departmentId"]?.toIntOrNull() ?: 0; if (session.role == QueuingManagementSystem.common.UserRole.DEPARTMENT_ADMIN.name && session.department_id != departmentId) return@get call.respond(HttpStatusCode.Forbidden,
             QueuingManagementSystem.models.GlobalCredentialResponse(
                 403,

@@ -54,6 +54,7 @@ data class PrintableTicketModel(
     val ticketNumber: String,
     val departmentId: Int,
     val departmentName: String,
+    val companyName: String? = null,
     val queueTypeId: Int,
     val queueTypeName: String,
     val status: String,

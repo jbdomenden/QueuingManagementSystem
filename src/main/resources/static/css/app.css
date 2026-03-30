@@ -140,3 +140,74 @@ pre {
 @media (max-width: 900px) {
   .col-4, .col-6, .col-8, .col-12 { grid-column: span 12; }
 }
+
+.kiosk-body {
+  background: #e9eef6;
+}
+.kiosk-shell {
+  max-width: 1280px;
+  margin: 0 auto;
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+}
+.kiosk-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.kiosk-header h1 {
+  margin: 0;
+  text-align: center;
+  letter-spacing: 1px;
+}
+.kiosk-datetime {
+  text-align: right;
+  font-weight: 700;
+}
+.company-grid {
+  display: grid;
+  gap: 12px;
+}
+.big-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-bottom: 14px;
+}
+.small-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.company-card {
+  border: 1px solid #93c5fd;
+  background: #ffffff;
+  color: #0f172a;
+  border-radius: 10px;
+  padding: 14px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.company-card .short-name { font-weight: 800; }
+.company-card.big .short-name { font-size: 30px; }
+.company-card.small .short-name { font-size: 20px; }
+.company-card .full-name { color: #334155; font-size: 14px; }
+.kiosk-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: grid;
+  grid-template-columns: 160px 1fr 160px;
+  align-items: center;
+}
+.kiosk-footer p {
+  margin: 0;
+  text-align: center;
+  font-weight: 700;
+}
+
+.action-btn {
+  width: auto;
+  margin: 0;
+  padding: 6px 10px;
+}

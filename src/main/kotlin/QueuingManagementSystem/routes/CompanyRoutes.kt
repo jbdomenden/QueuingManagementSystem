@@ -1,0 +1,149 @@
+package QueuingManagementSystem.routes
+
+import QueuingManagementSystem.common.UserRole
+import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.CompanyController
+import QueuingManagementSystem.models.CompanyKioskListResponse
+import QueuingManagementSystem.models.CompanyListResponse
+import QueuingManagementSystem.models.CompanyRequest
+import QueuingManagementSystem.models.CompanyResponse
+import QueuingManagementSystem.models.GlobalCredentialResponse
+import QueuingManagementSystem.models.IdResponse
+import QueuingManagementSystem.models.validateCompanyRequest
+import io.ktor.http.HttpStatusCode
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.Route
+import io.ktor.server.routing.delete
+import io.ktor.server.routing.get
+import io.ktor.server.routing.post
+import io.ktor.server.routing.put
+import io.ktor.server.routing.route
+
+fun Route.companyRoutes() {
+    val authController = AuthController()
+    val controller = CompanyController()
+
+    route("/companies") {
+        get("/kiosk") {
+            try {
+                call.respond(
+                    HttpStatusCode.OK,
+                    CompanyKioskListResponse(
+                        controller.getActiveCompaniesForKiosk(),
+                        GlobalCredentialResponse(200, true, "OK")
+                    )
+                )
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        get("/list") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    CompanyListResponse(controller.getCompanies(), GlobalCredentialResponse(200, true, "OK"))
+                )
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        get("/{id}") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
+                if (companyId <= 0) {
+                    return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
+                }
+
+                val company = controller.getCompanyById(companyId)
+                if (company.id <= 0) {
+                    return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Company not found"))
+                }
+
+                call.respond(
+                    HttpStatusCode.OK,
+                    CompanyResponse(company, GlobalCredentialResponse(200, true, "OK"))
+                )
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        post("/create") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                val request = call.receive<CompanyRequest>()
+                val errors = request.validateCompanyRequest()
+                if (errors.isNotEmpty()) {
+                    return@post call.respond(HttpStatusCode.BadRequest, errors)
+                }
+
+                val id = controller.postCompany(request)
+                call.respond(HttpStatusCode.OK, IdResponse(id, GlobalCredentialResponse(200, id > 0, "Company created")))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        put("/update/{id}") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
+                if (companyId <= 0) {
+                    return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
+                }
+
+                val request = call.receive<CompanyRequest>()
+                val errors = request.validateCompanyRequest()
+                if (errors.isNotEmpty()) {
+                    return@put call.respond(HttpStatusCode.BadRequest, errors)
+                }
+
+                val affected = controller.updateCompany(companyId, request)
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, affected > 0, "Company updated"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        delete("/deactivate/{id}") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                    return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
+                if (companyId <= 0) {
+                    return@delete call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
+                }
+
+                val affected = controller.deactivateCompany(companyId)
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, affected > 0, "Company deactivated"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+    }
+}

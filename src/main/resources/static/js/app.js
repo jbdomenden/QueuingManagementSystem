@@ -9,6 +9,7 @@
       ['kiosk.html', 'Kiosk'],
       ['handler.html', 'Handler'],
       ['admin.html', 'Admin'],
+      ['companies.html', 'Companies'],
       ['display.html', 'Display'],
       ['archived.html', 'Archived']
     ];
