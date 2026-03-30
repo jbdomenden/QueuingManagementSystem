@@ -11,6 +11,31 @@
   const createBtn = document.getElementById('createTicketBtn');
   const printable = document.getElementById('printablePanel');
   const printBtn = document.getElementById('printBtn');
+  const queueSection = document.getElementById('queueSection');
+  const selectedCompanyTitle = document.getElementById('selectedCompanyTitle');
+
+  let selectedCompany = null;
+  let queueTypesForCompany = [];
+
+  function updateDateTime() {
+    const now = new Date();
+    document.getElementById('liveDate').textContent = now.toLocaleDateString();
+    document.getElementById('liveTime').textContent = now.toLocaleTimeString();
+  }
+
+  function renderCompanyTiles(companies) {
+    const bigGrid = document.getElementById('companyBigGrid');
+    const smallGrid = document.getElementById('companySmallGrid');
+
+    const bigCompanies = companies.filter(x => x.displaySize === 'BIG');
+    const smallCompanies = companies.filter(x => x.displaySize === 'SMALL');
+
+    const toCard = (company, sizeClass) => `
+      <button class="company-card ${sizeClass}" data-company-id="${company.id}" data-company-name="${company.companyShortName}">
+        <span class="short-name">${company.companyShortName}</span>
+        <span class="full-name">${company.companyFullName}</span>
+      </button>
+    `;
 
   let selectedCompany = null;
   let selectedTransaction = null;
