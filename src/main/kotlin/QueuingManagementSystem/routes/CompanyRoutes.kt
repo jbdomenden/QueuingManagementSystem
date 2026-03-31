@@ -4,12 +4,13 @@ import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.CompanyController
-import QueuingManagementSystem.models.CompanyKioskListResponse
-import QueuingManagementSystem.models.CompanyListResponse
+import QueuingManagementSystem.models.CompanyKioskBoard
 import QueuingManagementSystem.models.CompanyRequest
 import QueuingManagementSystem.models.CompanyResponse
+import QueuingManagementSystem.models.CompanyListResponse
 import QueuingManagementSystem.models.GlobalCredentialResponse
 import QueuingManagementSystem.models.IdResponse
+import QueuingManagementSystem.models.SingleResponse
 import QueuingManagementSystem.models.validateCompanyRequest
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -30,8 +31,8 @@ fun Route.companyRoutes() {
             try {
                 call.respond(
                     HttpStatusCode.OK,
-                    CompanyKioskListResponse(
-                        controller.getActiveCompaniesForKiosk(),
+                    SingleResponse(
+                        CompanyKioskBoard("QUEUING SYSTEM", controller.getActiveCompaniesForKiosk()),
                         GlobalCredentialResponse(200, true, "OK")
                     )
                 )
@@ -43,7 +44,7 @@ fun Route.companyRoutes() {
         get("/list") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                if (session.role != UserRole.SUPERADMIN.name) {
                     return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -59,7 +60,7 @@ fun Route.companyRoutes() {
         get("/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                if (session.role != UserRole.SUPERADMIN.name) {
                     return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -85,7 +86,7 @@ fun Route.companyRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                if (session.role != UserRole.SUPERADMIN.name) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -93,6 +94,10 @@ fun Route.companyRoutes() {
                 val errors = request.validateCompanyRequest()
                 if (errors.isNotEmpty()) {
                     return@post call.respond(HttpStatusCode.BadRequest, errors)
+                }
+
+                if (controller.getCompanyByCode(request.companyCode).exists) {
+                    return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyCode must be unique"))
                 }
 
                 val id = controller.postCompany(request)
@@ -105,7 +110,7 @@ fun Route.companyRoutes() {
         put("/update/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                if (session.role != UserRole.SUPERADMIN.name) {
                     return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -120,6 +125,10 @@ fun Route.companyRoutes() {
                     return@put call.respond(HttpStatusCode.BadRequest, errors)
                 }
 
+                if (controller.getCompanyByCodeExceptId(request.companyCode, companyId).exists) {
+                    return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyCode must be unique"))
+                }
+
                 val affected = controller.updateCompany(companyId, request)
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, affected > 0, "Company updated"))
             } catch (e: Exception) {
@@ -130,7 +139,7 @@ fun Route.companyRoutes() {
         delete("/deactivate/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                if (session.role != UserRole.SUPERADMIN.name) {
                     return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -143,6 +152,25 @@ fun Route.companyRoutes() {
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, affected > 0, "Company deactivated"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
+        delete("/{id}") {
+            try {
+                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
+                if (session.role != UserRole.SUPERADMIN.name) {
+                    return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                }
+
+                val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
+                if (companyId <= 0) {
+                    return@delete call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
+                }
+
+                val affected = controller.deleteCompany(companyId)
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, affected > 0, "Company deleted"))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, e.message ?: "Unable to delete company"))
             }
         }
     }
