@@ -17,7 +17,7 @@ class AuthController(
     private val jwtExpirationMinutes: Long = 480L,
     private val singleSessionEnforced: Boolean = false
 ) {
-    private val allowedLoginRoles = setOf("SUPER_ADMIN", "ADMIN", "MODERATOR", "SUPERVISOR", "HANDLER", "USER")
+    private val allowedLoginRoles = setOf("SUPER_ADMIN", "SUPERADMIN", "ADMIN", "DEPARTMENT_ADMIN", "MODERATOR", "SUPERVISOR", "HANDLER", "USER")
     private val allowedLoginRoleKeys = allowedLoginRoles.map { it.replace("_", "") }.toSet()
 
     data class ValidatedSession(
