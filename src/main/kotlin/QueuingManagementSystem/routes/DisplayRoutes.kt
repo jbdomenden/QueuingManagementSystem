@@ -96,19 +96,14 @@ fun Route.displayRoutes() {
 
         get("/snapshot/{displayId}") {
             try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireDisplayPermission(session, "display_view")) return@get
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
                 if (displayId <= 0) {
                     return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
                 }
                 val display = controller.getDisplayBoardById(displayId)
                     ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Display not found"))
-                if (session.permissions.contains("display_scope_department") && session.department_id != display.department_id) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
-                }
-                if (!session.permissions.contains("display_scope_department") && !session.permissions.contains("display_scope_global")) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Missing display scope permission"))
+                if (!display.is_active) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Display is inactive"))
                 }
                 call.respond(HttpStatusCode.OK, controller.getDisplaySnapshot(displayId))
             } catch (e: Exception) {
@@ -118,17 +113,12 @@ fun Route.displayRoutes() {
 
         get("/aggregate/{displayId}") {
             try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireDisplayPermission(session, "display_view")) return@get
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
                 if (displayId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
                 val display = controller.getDisplayBoardById(displayId)
                     ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Display not found"))
-                if (session.permissions.contains("display_scope_department") && session.department_id != display.department_id) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
-                }
-                if (!session.permissions.contains("display_scope_department") && !session.permissions.contains("display_scope_global")) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Missing display scope permission"))
+                if (!display.is_active) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Display is inactive"))
                 }
 
                 val filters = DisplayFilterParams(
