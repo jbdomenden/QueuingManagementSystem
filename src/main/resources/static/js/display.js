@@ -10,8 +10,31 @@
   const onHoldBody = document.getElementById('onHoldBody');
   const visitorSupplierBody = document.getElementById('visitorSupplierBody');
 
+  const onQueueCountEl = document.getElementById('onQueueCount');
+  const noShowCountEl = document.getElementById('noShowCount');
+  const onHoldCountEl = document.getElementById('onHoldCount');
+  const visitorSupplierCountEl = document.getElementById('visitorSupplierCount');
+
   let selectedFilter = 'all';
-  let refreshHandle = null;
+  let pollHandle = null;
+  let ws = null;
+  let fetchInFlight = false;
+
+  const panelState = {
+    filterOptions: '',
+    selectedFilter: '',
+    called: '',
+    onQueueLeft: '',
+    onQueueRight: '',
+    noShow: '',
+    onHold: '',
+    visitorSupplier: '',
+    counts: ''
+  };
+
+  function serialize(value) {
+    return JSON.stringify(value || []);
+  }
 
   function rowHtmlTwoCols(rows) {
     return (rows || []).map((row) => `
@@ -41,62 +64,109 @@
     };
   }
 
-  function setCounts(counts) {
-    document.getElementById('onQueueCount').textContent = `[${counts.onQueue || 0}]`;
-    document.getElementById('noShowCount').textContent = `[${counts.noShow || 0}]`;
-    document.getElementById('onHoldCount').textContent = `[${counts.onHold || 0}]`;
-    document.getElementById('visitorSupplierCount').textContent = `[${counts.visitorSupplier || 0}]`;
+  function patchCounts(counts) {
+    const nextKey = JSON.stringify({
+      onQueue: counts.onQueue || 0,
+      noShow: counts.noShow || 0,
+      onHold: counts.onHold || 0,
+      visitorSupplier: counts.visitorSupplier || 0
+    });
+
+    if (panelState.counts === nextKey) return;
+    panelState.counts = nextKey;
+    onQueueCountEl.textContent = `[${counts.onQueue || 0}]`;
+    noShowCountEl.textContent = `[${counts.noShow || 0}]`;
+    onHoldCountEl.textContent = `[${counts.onHold || 0}]`;
+    visitorSupplierCountEl.textContent = `[${counts.visitorSupplier || 0}]`;
   }
 
-  function renderFilter(options, selected) {
+  function patchFilter(options, selected) {
     const nextOptions = options && options.length ? options : [{ id: 'all', label: 'Select' }];
-    const currentValue = selected || selectedFilter || 'all';
-    const previous = filterEl.value;
+    const optionsKey = JSON.stringify(nextOptions);
+    const nextSelected = selected || selectedFilter || 'all';
 
-    filterEl.innerHTML = nextOptions
-      .map((opt) => `<option value="${opt.id}">${opt.label}</option>`)
-      .join('');
+    if (panelState.filterOptions !== optionsKey) {
+      const previousValue = filterEl.value;
+      filterEl.innerHTML = nextOptions.map((opt) => `<option value="${opt.id}">${opt.label}</option>`).join('');
+      panelState.filterOptions = optionsKey;
 
-    filterEl.value = nextOptions.some((opt) => opt.id === currentValue)
-      ? currentValue
-      : (nextOptions.some((opt) => opt.id === previous) ? previous : nextOptions[0].id);
+      if (nextOptions.some((opt) => opt.id === previousValue)) {
+        filterEl.value = previousValue;
+      }
+    }
 
-    selectedFilter = filterEl.value;
+    if (!nextOptions.some((opt) => opt.id === filterEl.value)) {
+      filterEl.value = nextOptions[0].id;
+    }
+
+    if (nextOptions.some((opt) => opt.id === nextSelected) && panelState.selectedFilter !== nextSelected) {
+      filterEl.value = nextSelected;
+    }
+
+    selectedFilter = filterEl.value || 'all';
+    panelState.selectedFilter = selectedFilter;
+  }
+
+  function patchPanel(key, rows, el, renderer) {
+    const nextKey = serialize(rows);
+    if (panelState[key] === nextKey) return;
+    panelState[key] = nextKey;
+    el.innerHTML = renderer(rows);
   }
 
   function renderPayload(payload) {
-    renderFilter(payload.filterOptions, payload.selectedFilter);
-    setCounts(payload.counts || {});
-
-    calledBody.innerHTML = rowHtmlThreeCols(payload.called || []);
+    patchFilter(payload.filterOptions, payload.selectedFilter);
+    patchCounts(payload.counts || {});
 
     const split = splitOnQueue(payload.onQueue || []);
-    onQueueLeftBody.innerHTML = rowHtmlTwoCols(split.left);
-    onQueueRightBody.innerHTML = rowHtmlTwoCols(split.right);
 
-    noShowBody.innerHTML = rowHtmlThreeCols(payload.noShow || []);
-    onHoldBody.innerHTML = rowHtmlTwoCols(payload.onHold || []);
-    visitorSupplierBody.innerHTML = rowHtmlTwoCols(payload.visitorSupplier || []);
+    patchPanel('called', payload.called || [], calledBody, rowHtmlThreeCols);
+    patchPanel('onQueueLeft', split.left, onQueueLeftBody, rowHtmlTwoCols);
+    patchPanel('onQueueRight', split.right, onQueueRightBody, rowHtmlTwoCols);
+    patchPanel('noShow', payload.noShow || [], noShowBody, rowHtmlThreeCols);
+    patchPanel('onHold', payload.onHold || [], onHoldBody, rowHtmlTwoCols);
+    patchPanel('visitorSupplier', payload.visitorSupplier || [], visitorSupplierBody, rowHtmlTwoCols);
   }
 
   async function fetchWallboard() {
-    if (!displayId) return;
-    const query = selectedFilter ? `?filter=${encodeURIComponent(selectedFilter)}` : '';
-    const result = await window.Api.apiRequest(`/displays/wallboard/${displayId}${query}`);
-    if (result.ok && result.data && result.data.result && result.data.result.Access) {
-      renderPayload(result.data);
+    if (!displayId || fetchInFlight) return;
+    fetchInFlight = true;
+    try {
+      const query = selectedFilter ? `?filter=${encodeURIComponent(selectedFilter)}` : '';
+      const result = await window.Api.apiRequest(`/displays/wallboard/${displayId}${query}`);
+      if (result.ok && result.data && result.data.result && result.data.result.Access) {
+        renderPayload(result.data);
+      }
+    } finally {
+      fetchInFlight = false;
     }
+  }
+
+  function connectWs() {
+    if (!displayId) return;
+    if (ws) ws.close();
+
+    ws = window.WS && window.WS.connectWebSocket
+      ? window.WS.connectWebSocket(`/realtime/ws/display/${displayId}`, {
+          onOpen: () => {},
+          onMessage: () => { fetchWallboard(); },
+          onClose: () => {}
+        })
+      : null;
   }
 
   filterEl.addEventListener('change', () => {
     selectedFilter = filterEl.value || 'all';
+    panelState.selectedFilter = selectedFilter;
     fetchWallboard();
   });
 
   fetchWallboard();
-  refreshHandle = setInterval(fetchWallboard, 5000);
+  connectWs();
+  pollHandle = setInterval(fetchWallboard, 5000);
 
   window.addEventListener('beforeunload', () => {
-    if (refreshHandle) clearInterval(refreshHandle);
+    if (pollHandle) clearInterval(pollHandle);
+    if (ws) ws.close();
   });
 })();
