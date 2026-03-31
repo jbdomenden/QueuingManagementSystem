@@ -81,6 +81,11 @@ class DisplayController {
         return aggregationService.getDisplayAggregateSnapshot(displayBoardId, filters)
     }
 
+
+    fun getDisplayWallboard(displayBoardId: Int, selectedFilter: String?): DisplayWallboardResponse {
+        return aggregationService.getDisplayWallboard(displayBoardId, selectedFilter)
+    }
+
     fun getDisplayBoardById(displayBoardId: Int): DisplayBoardModel? {
         ConnectionPoolManager.getConnection().use { c ->
             c.prepareStatement(getDisplayBoardByIdQuery).use { s ->
