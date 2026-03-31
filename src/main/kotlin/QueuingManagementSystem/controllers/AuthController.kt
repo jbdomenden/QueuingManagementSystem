@@ -70,6 +70,15 @@ class AuthController(
                     return unauthorized()
                 }
 
+                val normalizedRole = role.uppercase().replace("_", "")
+                val allowedRoles = setOf("SUPERADMIN", "ADMIN", "MODERATOR", "SUPERVISOR", "HANDLER", "USER", "DEPARTMENTADMIN")
+                if (!allowedRoles.contains(normalizedRole)) {
+                    auditFailedLogin(connection, username, ipAddress, userAgent, "ROLE_NOT_ALLOWED")
+                    auditSessionLifecycle(connection, userId, departmentId, "FAILED_LOGIN", username, "ROLE_NOT_ALLOWED")
+                    connection.commit()
+                    return unauthorized()
+                }
+
                 val permissions = getPermissionsByUserId(connection, userId)
                 if (singleSessionEnforced) {
                     connection.prepareStatement(revokeOtherActiveUserSessionsQuery).use { s ->
