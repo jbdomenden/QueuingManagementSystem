@@ -518,6 +518,88 @@ class TicketController {
         return null
     }
 
+
+    fun getHandlerWaitingTickets(handlerId: Int): List<TicketModel> {
+        val list = mutableListOf<TicketModel>()
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getWaitingTicketsForHandlerQueueQuery).use { statement ->
+                statement.setInt(1, handlerId)
+                statement.executeQuery().use { rs -> while (rs.next()) list.add(mapTicket(rs)) }
+            }
+        }
+        return list
+    }
+
+    fun callTicket(actorUserId: Int, handlerId: Int, ticketId: Int): LifecycleMutationResult {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                val existing = fetchCurrentActiveTicketForUpdate(connection, handlerId)
+                if (existing != null) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(existing, "CALL_TICKET", GlobalCredentialResponse(409, false, "Handler already has an active ticket")))
+                }
+
+                val ticket = fetchTicketForUpdate(connection, ticketId)
+                    ?: run {
+                        connection.rollback()
+                        return LifecycleMutationResult(TicketLifecycleResponse(null, "CALL_TICKET", GlobalCredentialResponse(404, false, "Ticket not found")))
+                    }
+
+                if (ticket.status != "WAITING") {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, "CALL_TICKET", GlobalCredentialResponse(409, false, "Only waiting tickets can be called")))
+                }
+
+                val activeWindowId = getActiveWindowId(connection, handlerId)
+                    ?: run {
+                        connection.rollback()
+                        return LifecycleMutationResult(TicketLifecycleResponse(ticket, "CALL_TICKET", GlobalCredentialResponse(409, false, "No active handler window")))
+                    }
+
+                val eligible = connection.prepareStatement(getWaitingTicketsForHandlerQueueQuery).use { statement ->
+                    statement.setInt(1, handlerId)
+                    statement.executeQuery().use { rs ->
+                        var found = false
+                        while (rs.next()) {
+                            if (rs.getInt("id") == ticketId) {
+                                found = true
+                                break
+                            }
+                        }
+                        found
+                    }
+                }
+                if (!eligible) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, "CALL_TICKET", GlobalCredentialResponse(403, false, "Ticket is not eligible for this handler window")))
+                }
+
+                applyStatusTransition(
+                    connection = connection,
+                    actorUserId = actorUserId,
+                    actorHandlerId = handlerId,
+                    ticket = ticket,
+                    toStatus = "CALLED",
+                    reason = "CALL_SELECTED",
+                    event = "TICKET_CALLED",
+                    targetHandlerId = handlerId,
+                    targetWindowId = activeWindowId
+                )
+
+                val updated = fetchTicketForUpdate(connection, ticket.id) ?: ticket
+                val displayIds = getDisplayIdsByHandler(handlerId)
+                connection.commit()
+                return LifecycleMutationResult(TicketLifecycleResponse(updated, "TICKET_CALLED", GlobalCredentialResponse(200, true, "Ticket called")), displayIds, updated.department_id)
+            } catch (e: Exception) {
+                connection.rollback()
+                return LifecycleMutationResult(TicketLifecycleResponse(null, "CALL_TICKET", GlobalCredentialResponse(500, false, e.message ?: "Internal server error")))
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
     fun callNextTicket(actorUserId: Int, handlerId: Int): LifecycleMutationResult {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
@@ -561,6 +643,10 @@ class TicketController {
 
     fun recallTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
         return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("CALLED", "IN_SERVICE", "HOLD"), "CALLED", reason ?: "RECALL", "TICKET_RECALLED")
+    }
+
+    fun startServiceTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
+        return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("CALLED", "HOLD"), "IN_SERVICE", reason ?: "START_SERVICE", "TICKET_IN_SERVICE")
     }
 
     fun holdTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {

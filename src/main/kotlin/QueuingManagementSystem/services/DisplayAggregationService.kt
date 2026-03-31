@@ -23,6 +23,131 @@ class DisplayAggregationService {
         )
     }
 
+
+
+    fun getDisplayWallboard(displayBoardId: Int, selectedFilter: String?): DisplayWallboardResponse {
+        val display = getDisplayBoardById(displayBoardId)
+            ?: return DisplayWallboardResponse(
+                filterOptions = listOf(WallboardFilterOption("all", "Select")),
+                selectedFilter = selectedFilter ?: "all",
+                counts = WallboardCounts(0, 0, 0, 0),
+                called = emptyList(),
+                onQueue = emptyList(),
+                noShow = emptyList(),
+                onHold = emptyList(),
+                visitorSupplier = emptyList(),
+                result = GlobalCredentialResponse(404, false, "Display not found")
+            )
+
+        val normalizedFilter = if (selectedFilter.isNullOrBlank()) "all" else selectedFilter
+        val companyId = normalizedFilter.removePrefix("company-").toIntOrNull()
+        val rows = collectWallboardRows(displayBoardId, companyId)
+
+        fun isVisitorSupplier(row: WallboardQueueRowInternal): Boolean {
+            val tx = row.transactionName.uppercase()
+            return row.companyId == null || tx.contains("VISITOR") || tx.contains("SUPPLIER")
+        }
+
+        val calledRows = rows.filter { (it.status == "CALLED" || it.status == "IN_SERVICE") && !isVisitorSupplier(it) }
+            .sortedByDescending { it.calledAt ?: it.updatedAt }
+            .map { it.toWallboardRow(includeTerminal = true) }
+
+        val onQueueRows = rows.filter { it.status == "WAITING" && !isVisitorSupplier(it) }
+            .sortedBy { it.createdAt }
+            .map { it.toWallboardRow(includeTerminal = false) }
+
+        val noShowRows = rows.filter { it.status == "SKIPPED" && !isVisitorSupplier(it) }
+            .sortedByDescending { it.updatedAt }
+            .map { it.toWallboardRow(includeTerminal = true) }
+
+        val onHoldRows = rows.filter { it.status == "HOLD" && !isVisitorSupplier(it) }
+            .sortedByDescending { it.updatedAt }
+            .map { it.toWallboardRow(includeTerminal = false) }
+
+        val visitorRows = rows.filter { it.status == "WAITING" && isVisitorSupplier(it) }
+            .sortedBy { it.createdAt }
+            .map { it.toWallboardRow(includeTerminal = false) }
+
+        return DisplayWallboardResponse(
+            filterOptions = collectWallboardFilterOptions(displayBoardId),
+            selectedFilter = if (companyId == null) "all" else "company-$companyId",
+            counts = WallboardCounts(
+                onQueue = onQueueRows.size,
+                noShow = noShowRows.size,
+                onHold = onHoldRows.size,
+                visitorSupplier = visitorRows.size
+            ),
+            called = calledRows,
+            onQueue = onQueueRows,
+            noShow = noShowRows,
+            onHold = onHoldRows,
+            visitorSupplier = visitorRows,
+            result = GlobalCredentialResponse(200, true, "OK")
+        )
+    }
+
+    private data class WallboardQueueRowInternal(
+        val ticketNumber: String,
+        val terminalName: String,
+        val transactionName: String,
+        val status: String,
+        val companyId: Int?,
+        val createdAt: String,
+        val calledAt: String?,
+        val updatedAt: String
+    ) {
+        fun toWallboardRow(includeTerminal: Boolean): WallboardQueueRow {
+            return WallboardQueueRow(
+                ticketNumber = ticketNumber,
+                terminalNumber = if (includeTerminal) terminalName.ifBlank { "-" } else null,
+                transactionName = transactionName
+            )
+        }
+    }
+
+    private fun collectWallboardRows(displayBoardId: Int, companyId: Int?): List<WallboardQueueRowInternal> {
+        val list = mutableListOf<WallboardQueueRowInternal>()
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getDisplayWallboardRowsQuery).use { s ->
+                s.setInt(1, displayBoardId)
+                bindNullableInt(s, 2, companyId)
+                bindNullableInt(s, 3, companyId)
+                s.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        list.add(
+                            WallboardQueueRowInternal(
+                                ticketNumber = rs.getString("ticket_number"),
+                                terminalName = rs.getString("terminal_name") ?: "",
+                                transactionName = rs.getString("transaction_name"),
+                                status = rs.getString("status"),
+                                companyId = rs.getInt("company_id").let { if (rs.wasNull()) null else it },
+                                createdAt = rs.getString("created_at"),
+                                calledAt = rs.getTimestamp("called_at")?.toInstant()?.toString(),
+                                updatedAt = rs.getString("updated_at")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return list
+    }
+
+    private fun collectWallboardFilterOptions(displayBoardId: Int): List<WallboardFilterOption> {
+        val options = mutableListOf(WallboardFilterOption("all", "Select"))
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getDisplayWallboardFilterOptionsQuery).use { s ->
+                s.setInt(1, displayBoardId)
+                s.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        options.add(WallboardFilterOption("company-${rs.getInt("id")}", rs.getString("company_short_name")))
+                    }
+                }
+            }
+        }
+        return options
+    }
+
     fun getDisplayAggregateSnapshot(displayBoardId: Int, filters: DisplayFilterParams): DisplayAggregateSnapshotResponse {
         val display = getDisplayBoardById(displayBoardId)
         val called = collectWindowState(getDisplayCurrentCalledTicketsQuery, displayBoardId, filters)
