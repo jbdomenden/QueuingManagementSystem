@@ -2,10 +2,11 @@ package QueuingManagementSystem.config
 
 import org.mindrot.jbcrypt.BCrypt
 import java.sql.Connection
-import java.sql.SQLException
 import java.util.UUID
 
 object UserSeeder {
+    private val allowedHumanRoles = setOf("SUPER_ADMIN", "ADMIN", "MODERATOR", "SUPERVISOR", "HANDLER", "USER")
+
     private data class SeedUser(
         val username: String,
         val password: String,
@@ -21,15 +22,6 @@ object UserSeeder {
         SeedUser("handler1", "handler123", "HANDLER", "Handler One"),
         SeedUser("handler2", "handler123", "HANDLER", "Handler Two"),
         SeedUser("user1", "user123", "USER", "User One")
-    )
-
-    private val legacyRoleFallback = mapOf(
-        "SUPER_ADMIN" to "SUPERADMIN",
-        "ADMIN" to "DEPARTMENT_ADMIN",
-        "MODERATOR" to "DEPARTMENT_ADMIN",
-        "SUPERVISOR" to "DEPARTMENT_ADMIN",
-        "HANDLER" to "HANDLER",
-        "USER" to "DEPARTMENT_ADMIN"
     )
 
     fun seedUsers() {
@@ -61,6 +53,7 @@ object UserSeeder {
     }
 
     private fun insertSeedUser(connection: Connection, seed: SeedUser) {
+        require(seed.role in allowedHumanRoles) { "Unsupported seed role: ${seed.role}" }
         val passwordHash = BCrypt.hashpw(seed.password, BCrypt.gensalt(12))
         val authToken = UUID.randomUUID().toString()
 
@@ -69,25 +62,13 @@ object UserSeeder {
             VALUES (?, ?, ?, ?, NULL, ?, true)
         """.trimIndent()
 
-        try {
-            connection.prepareStatement(insertSql).use { statement ->
-                statement.setString(1, seed.username)
-                statement.setString(2, passwordHash)
-                statement.setString(3, seed.fullName)
-                statement.setString(4, seed.role)
-                statement.setString(5, authToken)
-                statement.executeUpdate()
-            }
-        } catch (sqlError: SQLException) {
-            val fallbackRole = legacyRoleFallback[seed.role] ?: throw sqlError
-            connection.prepareStatement(insertSql).use { statement ->
-                statement.setString(1, seed.username)
-                statement.setString(2, passwordHash)
-                statement.setString(3, seed.fullName)
-                statement.setString(4, fallbackRole)
-                statement.setString(5, UUID.randomUUID().toString())
-                statement.executeUpdate()
-            }
+        connection.prepareStatement(insertSql).use { statement ->
+            statement.setString(1, seed.username)
+            statement.setString(2, passwordHash)
+            statement.setString(3, seed.fullName)
+            statement.setString(4, seed.role)
+            statement.setString(5, authToken)
+            statement.executeUpdate()
         }
     }
 }
