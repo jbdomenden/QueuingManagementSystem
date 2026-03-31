@@ -17,12 +17,14 @@
       body: JSON.stringify({ username, password })
     });
 
-    debug.textContent = window.Utils.toPrettyJson({
-      endpoint: result.endpoint,
-      status: result.status,
-      request: result.requestBody,
-      response: result.data
-    });
+    if (debug) {
+      debug.textContent = window.Utils.toPrettyJson({
+        endpoint: result.endpoint,
+        status: result.status,
+        request: result.requestBody,
+        response: result.data
+      });
+    }
 
     if (!result.ok || !result.data || !result.data.result || !result.data.result.Access) {
       message.textContent = (result.data && result.data.result && result.data.result.Message) || 'Login failed';
