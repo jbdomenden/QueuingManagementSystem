@@ -1,0 +1,125 @@
+.wallboard-body {
+  margin: 0;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+
+.wallboard-layout {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: minmax(0, 62%) minmax(0, 38%);
+  gap: 0.65rem;
+  padding: 0.65rem;
+}
+
+.wallboard-upper {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 2fr);
+  gap: 0.65rem;
+}
+
+.wallboard-lower {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.wb-block {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 0.5rem;
+}
+
+.wb-title-band {
+  background: #bcc9da;
+  color: #2233a5;
+  border: 1px solid #d7dee7;
+  padding: 0.35rem 0.9rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-title-band h1 {
+  margin: 0;
+  font-size: clamp(1.7rem, 2.7vw, 3.7rem);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wb-title-band h1 span {
+  font-size: 0.58em;
+  font-weight: 800;
+}
+
+.wb-title-band-with-filter {
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-inline: 1rem;
+}
+
+.wb-filter {
+  width: min(16rem, 30vw);
+  margin: 0;
+  padding: 0.35rem 0.6rem;
+  font-size: clamp(0.95rem, 1.1vw, 1.15rem);
+  font-weight: 700;
+  border: none;
+  border-radius: 0.3rem;
+  background: #f3f4f6;
+}
+
+.wb-panel {
+  min-height: 0;
+  background: #f8fafc;
+  border-radius: 0.7rem;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  overflow: auto;
+}
+
+.wb-onqueue-panels {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.wb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wb-table th {
+  color: #2233a5;
+  background: #c8d3e2;
+  text-transform: uppercase;
+  text-align: center;
+  font-size: clamp(1.2rem, 1.6vw, 2.05rem);
+  font-weight: 900;
+  border: 1px solid #325bde;
+  padding: 0.45rem;
+  white-space: nowrap;
+}
+
+.wb-table td {
+  text-align: center;
+  font-size: clamp(1.45rem, 1.9vw, 2.75rem);
+  font-weight: 800;
+  color: #0f172a;
+  padding: 0.4rem 0.45rem;
+}
+
+@media (max-width: 1200px) {
+  .wallboard-layout {
+    grid-template-rows: minmax(0, 56%) minmax(0, 44%);
+  }
+
+  .wallboard-upper {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 1.9fr);
+  }
+}

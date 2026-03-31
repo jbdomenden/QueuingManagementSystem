@@ -1,7 +1,5 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.extractBearerToken
-import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.models.DisplayFilterParams
 import QueuingManagementSystem.realtime.AdminSocketManager
@@ -16,7 +14,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 fun Route.realtimeRoutes() {
-    val authController = AuthController()
     val displayController = DisplayController()
 
     route("/realtime") {
@@ -44,21 +41,8 @@ fun Route.realtimeRoutes() {
                 close()
                 return@webSocket
             }
-            val session = authController.getValidatedSessionByToken(call.request.extractBearerToken())
-            if (session == null || !session.permissions.contains("display_view")) {
-                close()
-                return@webSocket
-            }
-            if (!session.permissions.contains("display_scope_department") && !session.permissions.contains("display_scope_global")) {
-                close()
-                return@webSocket
-            }
             val display = displayController.getDisplayBoardById(displayId)
-            if (display == null) {
-                close()
-                return@webSocket
-            }
-            if (session.permissions.contains("display_scope_department") && session.departmentId != display.department_id) {
+            if (display == null || !display.is_active) {
                 close()
                 return@webSocket
             }

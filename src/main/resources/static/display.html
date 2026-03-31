@@ -3,54 +3,106 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QMS Display</title>
+  <title>QMS Wallboard</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/display.css" />
 </head>
-<body>
-  <div id="topNav" class="topbar"></div>
-  <div class="container">
-    <div class="grid">
-      <div class="col-4 card">
-        <h3>Display Connection</h3>
-        <label>Display Board ID</label>
-        <input id="displayId" type="number" />
-        <button id="connectBtn" class="success">Connect + Start Polling</button>
-        <h4>Display Meta</h4>
-        <pre id="displayMeta">{}</pre>
+<body class="wallboard-body">
+  <main class="wallboard-layout">
+    <section class="wallboard-upper">
+      <div class="wb-block wb-called-block">
+        <header class="wb-title-band">
+          <h1>CALLED</h1>
+        </header>
+        <div class="wb-panel">
+          <table class="wb-table wb-table-called">
+            <thead>
+              <tr>
+                <th>TICKET NO.</th>
+                <th>TERMINAL NO.</th>
+                <th>TRANSACTION</th>
+              </tr>
+            </thead>
+            <tbody id="calledBody"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="col-8 card">
-        <h3>WebSocket Log</h3>
-        <pre id="wsLog"></pre>
+      <div class="wb-block wb-onqueue-block">
+        <header class="wb-title-band wb-title-band-with-filter">
+          <h1>ON QUEUE <span id="onQueueCount">[0]</span></h1>
+          <select id="wallboardFilter" class="wb-filter"></select>
+        </header>
+        <div class="wb-onqueue-panels">
+          <div class="wb-panel">
+            <table class="wb-table">
+              <thead>
+                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+              </thead>
+              <tbody id="onQueueLeftBody"></tbody>
+            </table>
+          </div>
+          <div class="wb-panel">
+            <table class="wb-table">
+              <thead>
+                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+              </thead>
+              <tbody id="onQueueRightBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wallboard-lower">
+      <div class="wb-block">
+        <header class="wb-title-band">
+          <h1>NO SHOW <span id="noShowCount">[0]</span></h1>
+        </header>
+        <div class="wb-panel">
+          <table class="wb-table wb-table-called">
+            <thead>
+              <tr><th>TICKET NO.</th><th>TERMINAL NO.</th><th>TRANSACTION</th></tr>
+            </thead>
+            <tbody id="noShowBody"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="col-12 card">
-        <h3>Queued (WAITING)</h3>
-        <div class="table-wrap"><table><thead><tr><th>Ticket #</th><th>Queue Type</th><th>Status</th><th>Window</th><th>Created</th><th>Waiting</th><th>Served</th></tr></thead><tbody id="queuedBody"></tbody></table></div>
+      <div class="wb-block">
+        <header class="wb-title-band">
+          <h1>ON-HOLD <span id="onHoldCount">[0]</span></h1>
+        </header>
+        <div class="wb-panel">
+          <table class="wb-table">
+            <thead>
+              <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+            </thead>
+            <tbody id="onHoldBody"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div class="col-12 card">
-        <h3>Now Serving (CALLED / IN_SERVICE)</h3>
-        <div class="table-wrap"><table><thead><tr><th>Ticket #</th><th>Queue Type</th><th>Status</th><th>Window</th><th>Created</th><th>Waiting</th><th>Served</th></tr></thead><tbody id="servingBody"></tbody></table></div>
+      <div class="wb-block">
+        <header class="wb-title-band">
+          <h1>VISITOR/SUPPLIER <span id="visitorSupplierCount">[0]</span></h1>
+        </header>
+        <div class="wb-panel">
+          <table class="wb-table">
+            <thead>
+              <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+            </thead>
+            <tbody id="visitorSupplierBody"></tbody>
+          </table>
+        </div>
       </div>
-
-      <div class="col-12 card">
-        <h3>Skipped</h3>
-        <div class="table-wrap"><table><thead><tr><th>Ticket #</th><th>Queue Type</th><th>Status</th><th>Window</th><th>Created</th><th>Waiting</th><th>Served</th></tr></thead><tbody id="skippedBody"></tbody></table></div>
-      </div>
-
-      <div class="col-12 card">
-        <h3>Debug</h3>
-        <pre id="debugPanel">{}</pre>
-      </div>
-    </div>
-  </div>
+    </section>
+  </main>
 
   <script src="/js/storage.js"></script>
   <script src="/js/utils.js"></script>
   <script src="/js/api.js"></script>
   <script src="/js/ws.js"></script>
-  <script src="/js/app.js"></script>
   <script src="/js/display.js"></script>
 </body>
 </html>
