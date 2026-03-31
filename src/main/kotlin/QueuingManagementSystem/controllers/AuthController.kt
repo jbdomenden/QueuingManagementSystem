@@ -17,6 +17,8 @@ class AuthController(
     private val jwtExpirationMinutes: Long = 480L,
     private val singleSessionEnforced: Boolean = false
 ) {
+    private val allowedLoginRoles = setOf("SUPER_ADMIN", "ADMIN", "MODERATOR", "SUPERVISOR", "HANDLER", "USER")
+    private val allowedLoginRoleKeys = allowedLoginRoles.map { it.replace("_", "") }.toSet()
 
     data class ValidatedSession(
         val sessionId: String,
@@ -66,6 +68,14 @@ class AuthController(
                     auditFailedLogin(connection, username, ipAddress, userAgent, "INVALID_PASSWORD")
                     auditLogin(connection, userId, username, false, ipAddress, userAgent, "INVALID_PASSWORD")
                     auditSessionLifecycle(connection, userId, departmentId, "FAILED_LOGIN", username, "INVALID_PASSWORD")
+                    connection.commit()
+                    return unauthorized()
+                }
+
+                val normalizedRoleKey = role.uppercase().replace("_", "")
+                if (!allowedLoginRoleKeys.contains(normalizedRoleKey)) {
+                    auditFailedLogin(connection, username, ipAddress, userAgent, "ROLE_NOT_ALLOWED")
+                    auditSessionLifecycle(connection, userId, departmentId, "FAILED_LOGIN", username, "ROLE_NOT_ALLOWED")
                     connection.commit()
                     return unauthorized()
                 }

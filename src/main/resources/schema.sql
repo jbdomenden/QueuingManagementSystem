@@ -509,3 +509,42 @@ VALUES
     ('report_view_global', 'View global reporting and archive metrics'),
     ('archive_manage', 'Run end-of-day queue archival process')
 ON CONFLICT (code) DO NOTHING;
+
+-- Sample handler seed user for local development login
+INSERT INTO departments(code, name, is_active)
+VALUES ('SME', 'SME Department', true)
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO users(username, password_hash, full_name, role, department_id, auth_token, is_active)
+VALUES (
+    'sme',
+    crypt('sme', gen_salt('bf', 12)),
+    'SME SUPPLIER',
+    'HANDLER',
+    (SELECT id FROM departments WHERE code = 'SME' LIMIT 1),
+    encode(gen_random_bytes(32), 'hex'),
+    true
+)
+ON CONFLICT (username) DO UPDATE SET
+    password_hash = EXCLUDED.password_hash,
+    full_name = EXCLUDED.full_name,
+    role = EXCLUDED.role,
+    department_id = EXCLUDED.department_id,
+    is_active = true;
+
+INSERT INTO user_department_scopes(user_id, department_id)
+SELECT u.id, d.id
+FROM users u
+JOIN departments d ON d.code = 'SME'
+WHERE u.username = 'sme'
+ON CONFLICT (user_id, department_id) DO NOTHING;
+
+INSERT INTO handlers(user_id, department_id, is_active)
+SELECT u.id, d.id, true
+FROM users u
+JOIN departments d ON d.code = 'SME'
+WHERE u.username = 'sme'
+ON CONFLICT (user_id) DO UPDATE SET
+    department_id = EXCLUDED.department_id,
+    is_active = true;
+
