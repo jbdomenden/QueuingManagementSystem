@@ -10,40 +10,118 @@ class TicketController {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
+                var resolvedQueueTypeId = request.queue_type_id ?: 0
+                var resolvedCompanyId = request.company_id
+                var resolvedCompanyTransactionId = request.company_transaction_id
+                var resolvedDestinationId = request.destination_id
+
+                if (resolvedDestinationId != null) {
+                    var destinationQueueTypeId = 0
+                    var destinationCompanyId = 0
+                    var destinationCompanyTransactionId = 0
+                    var destinationStatus = ""
+                    var destinationTransactionStatus = ""
+                    var destinationCompanyStatus = ""
+                    connection.prepareStatement(getDestinationDetailsByIdQuery).use { statement ->
+                        statement.setInt(1, resolvedDestinationId)
+                        statement.executeQuery().use { rs ->
+                            if (rs.next()) {
+                                destinationQueueTypeId = rs.getInt("queue_type_id").let { if (rs.wasNull()) 0 else it }
+                                destinationCompanyId = rs.getInt("company_id")
+                                destinationCompanyTransactionId = rs.getInt("company_transaction_id")
+                                destinationStatus = rs.getString("status")
+                                destinationTransactionStatus = rs.getString("transaction_status")
+                                destinationCompanyStatus = rs.getString("company_status")
+                            }
+                        }
+                    }
+                    if (destinationQueueTypeId <= 0) throw IllegalStateException("destination queue type is not configured")
+                    if (destinationStatus != "ACTIVE" || destinationTransactionStatus != "ACTIVE" || destinationCompanyStatus != "ACTIVE") throw IllegalStateException("destination is inactive")
+                    resolvedQueueTypeId = destinationQueueTypeId
+                    if (resolvedCompanyId == null) resolvedCompanyId = destinationCompanyId
+                    if (resolvedCompanyTransactionId == null) resolvedCompanyTransactionId = destinationCompanyTransactionId
+                }
+                if (resolvedQueueTypeId <= 0) throw IllegalStateException("queue type not found")
+
                 var departmentId = 0
                 var prefix = ""
+                var queueTypeCompanyId: Int? = null
                 connection.prepareStatement(getQueueTypeWithDepartmentByIdQuery).use { statement ->
-                    statement.setInt(1, request.queue_type_id)
+                    statement.setInt(1, resolvedQueueTypeId)
                     statement.executeQuery().use { rs ->
                         if (rs.next()) {
                             departmentId = rs.getInt("department_id")
                             prefix = rs.getString("prefix")
+                            queueTypeCompanyId = rs.getInt("company_id").let { if (rs.wasNull()) null else it }
                         }
                     }
                 }
                 if (departmentId == 0) throw IllegalStateException("queue type not found")
+                if (resolvedCompanyId != null && queueTypeCompanyId != resolvedCompanyId) throw IllegalStateException("queue type does not belong to selected company")
+
+                if (resolvedCompanyId != null && resolvedCompanyTransactionId != null) {
+                    var companyStatus = ""
+                    connection.prepareStatement(getActiveCompanyByIdQuery).use { statement ->
+                        statement.setInt(1, resolvedCompanyId)
+                        statement.executeQuery().use { rs -> if (rs.next()) companyStatus = rs.getString("status") }
+                    }
+                    if (companyStatus != "ACTIVE") throw IllegalStateException("company is inactive or not found")
+
+                    var ctCompanyId = 0
+                    var ctStatus = ""
+                    var ctCompanyStatus = ""
+                    connection.prepareStatement(getCompanyTransactionDetailsByIdQuery).use { statement ->
+                        statement.setInt(1, resolvedCompanyTransactionId)
+                        statement.executeQuery().use { rs ->
+                            if (rs.next()) {
+                                ctCompanyId = rs.getInt("company_id")
+                                ctStatus = rs.getString("status")
+                                ctCompanyStatus = rs.getString("company_status")
+                            }
+                        }
+                    }
+                    if (ctCompanyId <= 0 || ctCompanyId != resolvedCompanyId) throw IllegalStateException("invalid company transaction")
+                    if (ctStatus != "ACTIVE" || ctCompanyStatus != "ACTIVE") throw IllegalStateException("company transaction is inactive")
+                }
 
                 var kioskAllowed = false
                 connection.prepareStatement(getKioskByIdAndDepartmentQueueTypeQuery).use { statement ->
                     statement.setInt(1, request.kiosk_id)
-                    statement.setInt(2, request.queue_type_id)
+                    statement.setInt(2, resolvedQueueTypeId)
                     statement.executeQuery().use { rs -> kioskAllowed = rs.next() }
                 }
                 if (!kioskAllowed) throw IllegalStateException("kiosk is not mapped to queue type")
 
                 var sequence = 0
                 connection.prepareStatement(upsertQueueDailySequenceQuery).use { statement ->
-                    statement.setInt(1, request.queue_type_id)
+                    statement.setInt(1, resolvedQueueTypeId)
                     statement.executeQuery().use { rs -> if (rs.next()) sequence = rs.getInt("current_value") }
                 }
 
                 val ticketNumber = "$prefix-${sequence.toString().padStart(3, '0')}"
-                var ticket = TicketModel(0, "", 0, 0, null, null, null, "", "")
+                var ticket = TicketModel(
+                    id = 0,
+                    ticket_number = "",
+                    department_id = 0,
+                    queue_type_id = 0,
+                    company_transaction_id = null,
+                    kiosk_id = null,
+                    assigned_window_id = null,
+                    assigned_handler_id = null,
+                    status = "",
+                    created_at = ""
+                )
                 connection.prepareStatement(postTicketQuery).use { statement ->
                     statement.setString(1, ticketNumber)
                     statement.setInt(2, departmentId)
-                    statement.setInt(3, request.queue_type_id)
-                    statement.setInt(4, request.kiosk_id)
+                    statement.setInt(3, resolvedQueueTypeId)
+                    if (resolvedCompanyId == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, resolvedCompanyId)
+                    if (resolvedCompanyTransactionId == null) statement.setNull(5, java.sql.Types.INTEGER) else statement.setInt(5, resolvedCompanyTransactionId)
+                    if (resolvedDestinationId == null) statement.setNull(6, java.sql.Types.INTEGER) else statement.setInt(6, resolvedDestinationId)
+                    statement.setString(7, request.crew_identifier)
+                    statement.setString(8, request.crew_identifier_type)
+                    statement.setString(9, request.crew_name)
+                    statement.setInt(10, request.kiosk_id)
                     statement.executeQuery().use { rs -> if (rs.next()) ticket = mapTicket(rs) }
                 }
 
@@ -53,7 +131,7 @@ class TicketController {
                     statement.setInt(1, ticket.id)
                     statement.setString(2, "CREATED")
                     statement.setNull(3, java.sql.Types.INTEGER)
-                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id}}")
+                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id},\"company_id\":${resolvedCompanyId},\"company_transaction_id\":${resolvedCompanyTransactionId},\"destination_id\":${resolvedDestinationId},\"crew_identifier\":\"${request.crew_identifier ?: ""}\"}")
                     statement.executeUpdate()
                 }
 
@@ -61,7 +139,18 @@ class TicketController {
                 return ticket
             } catch (e: Exception) {
                 connection.rollback()
-                return TicketModel(0, "", 0, 0, null, null, null, "", "")
+                return TicketModel(
+                    id = 0,
+                    ticket_number = "",
+                    department_id = 0,
+                    queue_type_id = 0,
+                    company_transaction_id = null,
+                    kiosk_id = null,
+                    assigned_window_id = null,
+                    assigned_handler_id = null,
+                    status = "",
+                    created_at = ""
+                )
             } finally {
                 connection.autoCommit = true
             }
@@ -73,7 +162,7 @@ class TicketController {
         if (ticket.id <= 0) {
             return TicketCreateResponse(
                 ticket,
-                PrintableTicketModel(0, "", 0, "", 0, "", "", "", "", "", ""),
+                PrintableTicketModel(0, "", 0, "", null, null, null, 0, "", "", "", "", "", ""),
                 GlobalCredentialResponse(400, false, "Ticket create failed")
             )
         }
@@ -84,6 +173,9 @@ class TicketController {
                 ticket.ticket_number,
                 ticket.department_id,
                 "",
+                null,
+                null,
+                null,
                 ticket.queue_type_id,
                 "",
                 ticket.status,
@@ -105,6 +197,12 @@ class TicketController {
                         val formatted = buildString {
                             appendLine(rs.getString("department_name"))
                             appendLine("Queue Number: ${rs.getString("ticket_number")}")
+                            val companyName = rs.getString("company_name")
+                            if (!companyName.isNullOrBlank()) appendLine("Company: $companyName")
+                            val transactionName = rs.getString("company_transaction_name")
+                            if (!transactionName.isNullOrBlank()) appendLine("Transaction: $transactionName")
+                            val destinationName = rs.getString("destination_name")
+                            if (!destinationName.isNullOrBlank()) appendLine("Destination: $destinationName")
                             appendLine("Queue Type: ${rs.getString("queue_type_name")}")
                             appendLine("Date: ${rs.getString("queue_date")}")
                             append("Time: ${rs.getString("queue_time")}\nPlease wait for your number to be called")
@@ -114,6 +212,9 @@ class TicketController {
                             ticketNumber = rs.getString("ticket_number"),
                             departmentId = rs.getInt("department_id"),
                             departmentName = rs.getString("department_name"),
+                            companyName = rs.getString("company_name"),
+                            companyTransactionName = rs.getString("company_transaction_name"),
+                            destinationName = rs.getString("destination_name"),
                             queueTypeId = rs.getInt("queue_type_id"),
                             queueTypeName = rs.getString("queue_type_name"),
                             status = rs.getString("status"),
@@ -259,7 +360,18 @@ class TicketController {
                 connection.autoCommit = true
             }
         }
-        return TicketModel(0, "", 0, 0, null, null, null, "", "")
+        return TicketModel(
+            id = 0,
+            ticket_number = "",
+            department_id = 0,
+            queue_type_id = 0,
+            company_transaction_id = null,
+            kiosk_id = null,
+            assigned_window_id = null,
+            assigned_handler_id = null,
+            status = "",
+            created_at = ""
+        )
     }
 
     fun updateTicketStatus(ticketId: Int, handlerId: Int, action: String, notes: String? = null): Boolean {
@@ -357,6 +469,12 @@ WHERE id = ?
             ticket_number = rs.getString("ticket_number"),
             department_id = rs.getInt("department_id"),
             queue_type_id = rs.getInt("queue_type_id"),
+            company_id = rs.getInt("company_id").let { if (rs.wasNull()) null else it },
+            company_transaction_id = rs.getInt("company_transaction_id").let { if (rs.wasNull()) null else it },
+            destination_id = rs.getInt("destination_id").let { if (rs.wasNull()) null else it },
+            crew_identifier = rs.getString("crew_identifier"),
+            crew_identifier_type = rs.getString("crew_identifier_type"),
+            crew_name = rs.getString("crew_name"),
             kiosk_id = rs.getInt("kiosk_id").let { if (rs.wasNull()) null else it },
             assigned_window_id = rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
             assigned_handler_id = rs.getInt("assigned_handler_id").let { if (rs.wasNull()) null else it },

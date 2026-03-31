@@ -26,5 +26,6 @@ data class UserSessionModel(
     val user_id: Int = 0,
     val department_id: Int? = null,
     val role: String = "",
-    val token: String = ""
+    val token: String = "",
+    val permissions: List<String> = emptyList()
 )
