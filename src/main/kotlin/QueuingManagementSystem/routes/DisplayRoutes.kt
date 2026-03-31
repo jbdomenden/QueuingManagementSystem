@@ -94,6 +94,25 @@ fun Route.displayRoutes() {
             }
         }
 
+
+        get("/wallboard/{displayId}") {
+            try {
+                val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
+                if (displayId <= 0) {
+                    return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
+                }
+                val display = controller.getDisplayBoardById(displayId)
+                    ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Display not found"))
+                if (!display.is_active) {
+                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Display is inactive"))
+                }
+                val selectedFilter = call.request.queryParameters["filter"]
+                call.respond(HttpStatusCode.OK, controller.getDisplayWallboard(displayId, selectedFilter))
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
+            }
+        }
+
         get("/snapshot/{displayId}") {
             try {
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
