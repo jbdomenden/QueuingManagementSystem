@@ -9,14 +9,19 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 
 object DisplaySocketManager {
-    private val sessions = mutableMapOf<Int, MutableList<WebSocketSession>>()
+    data class DisplaySubscription(
+        val session: WebSocketSession,
+        val filtersJson: String
+    )
 
-    fun connect(displayBoardId: Int, session: WebSocketSession) {
-        sessions.getOrPut(displayBoardId) { mutableListOf() }.add(session)
+    private val sessions = mutableMapOf<Int, MutableList<DisplaySubscription>>()
+
+    fun connect(displayBoardId: Int, session: WebSocketSession, filtersJson: String) {
+        sessions.getOrPut(displayBoardId) { mutableListOf() }.add(DisplaySubscription(session, filtersJson))
     }
 
     fun disconnect(displayBoardId: Int, session: WebSocketSession) {
-        sessions[displayBoardId]?.remove(session)
+        sessions[displayBoardId]?.removeIf { it.session == session }
         if (sessions[displayBoardId].isNullOrEmpty()) {
             sessions.remove(displayBoardId)
         }
@@ -29,8 +34,12 @@ object DisplaySocketManager {
                 put("payload", payload)
             }
         )
-        sessions[displayBoardId]?.forEach { socket ->
-            socket.send(Frame.Text(message))
+        sessions[displayBoardId]?.forEach { subscription ->
+            subscription.session.send(Frame.Text(message))
         }
+    }
+
+    fun getSubscriptions(displayBoardId: Int): List<DisplaySubscription> {
+        return sessions[displayBoardId]?.toList() ?: emptyList()
     }
 }

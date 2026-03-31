@@ -1,11 +1,12 @@
 package QueuingManagementSystem.controllers
 
-import QueuingManagementSystem.common.formatDurationToHms
 import QueuingManagementSystem.config.ConnectionPoolManager
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.queries.*
+import QueuingManagementSystem.services.DisplayAggregationService
 
 class DisplayController {
+    private val aggregationService = DisplayAggregationService()
     fun createDisplayBoard(request: DisplayBoardRequest): Int {
         ConnectionPoolManager.getConnection().use { c ->
             c.prepareStatement(postDisplayBoardQuery).use { s ->
@@ -73,20 +74,11 @@ class DisplayController {
     }
 
     fun getDisplaySnapshot(displayBoardId: Int): DisplaySnapshotResponse {
-        val display = getDisplayBoardById(displayBoardId)
-        val windows = getDisplayWindows(displayBoardId)
-        val queued = collectTickets(getQueuedTicketsForDisplayQuery, displayBoardId)
-        val nowServing = collectTickets(getNowServingTicketsForDisplayQuery, displayBoardId)
-        val skipped = collectTickets(getSkippedTicketsForDisplayQuery, displayBoardId)
+        return aggregationService.getDisplaySnapshot(displayBoardId)
+    }
 
-        return DisplaySnapshotResponse(
-            display = display,
-            windows = windows,
-            queued = queued,
-            now_serving = nowServing,
-            skipped = skipped,
-            result = GlobalCredentialResponse(200, true, "OK")
-        )
+    fun getDisplayAggregateSnapshot(displayBoardId: Int, filters: DisplayFilterParams): DisplayAggregateSnapshotResponse {
+        return aggregationService.getDisplayAggregateSnapshot(displayBoardId, filters)
     }
 
     fun getDisplayBoardById(displayBoardId: Int): DisplayBoardModel? {
@@ -121,39 +113,6 @@ class DisplayController {
             }
         }
         return list
-    }
-
-    private fun collectTickets(query: String, displayBoardId: Int): MutableList<DisplayTicketSnapshot> {
-        val items = mutableListOf<DisplayTicketSnapshot>()
-        ConnectionPoolManager.getConnection().use { c ->
-            c.prepareStatement(query).use { s ->
-                s.setInt(1, displayBoardId)
-                s.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        val waitingSeconds = rs.getLong("waiting_seconds").let { if (rs.wasNull()) null else it }
-                        val servedSeconds = rs.getLong("served_seconds").let { if (rs.wasNull()) null else it }
-                        items.add(
-                            DisplayTicketSnapshot(
-                                rs.getInt("id"),
-                                rs.getString("ticket_number"),
-                                rs.getInt("queue_type_id"),
-                                rs.getString("queue_type_name"),
-                                rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
-                                rs.getString("assigned_window_name"),
-                                rs.getString("status"),
-                                rs.getString("created_at"),
-                                rs.getString("queued_at"),
-                                waitingSeconds,
-                                formatDurationToHms(waitingSeconds),
-                                servedSeconds,
-                                formatDurationToHms(servedSeconds)
-                            )
-                        )
-                    }
-                }
-            }
-        }
-        return items
     }
 
     private fun mapDisplay(rs: java.sql.ResultSet): DisplayBoardModel {

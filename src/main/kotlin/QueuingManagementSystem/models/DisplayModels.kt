@@ -65,6 +65,54 @@ data class DisplaySnapshotResponse(
     val result: GlobalCredentialResponse
 )
 
+@Serializable
+data class DisplayFilterParams(
+    val department_id: Int? = null,
+    val area_id: Int? = null,
+    val floor_id: Int? = null,
+    val company_id: Int? = null
+)
+
+@Serializable
+data class DisplayWindowTicketState(
+    val window_id: Int,
+    val window_name: String,
+    val ticket_id: Int,
+    val ticket_number: String,
+    val queue_type_id: Int,
+    val queue_type_name: String,
+    val status: String
+)
+
+@Serializable
+data class QueueTypeWaitingCount(
+    val queue_type_id: Int,
+    val queue_type_name: String,
+    val waiting_count: Int
+)
+
+@Serializable
+data class StatusCount(
+    val status: String,
+    val count: Int
+)
+
+@Serializable
+data class DisplayAggregateSnapshotResponse(
+    val display: DisplayBoardModel?,
+    val filters: DisplayFilterParams,
+    val floor_filter_supported: Boolean,
+    val current_called_tickets: List<DisplayWindowTicketState>,
+    val current_serving_tickets: List<DisplayWindowTicketState>,
+    val waiting_counts_by_queue_type: List<QueueTypeWaitingCount>,
+    val counts_by_status: List<StatusCount>,
+    val hold_count: Int,
+    val no_show_count: Int,
+    val visitor_count: Int?,
+    val special_count: Int?,
+    val result: GlobalCredentialResponse
+)
+
 fun DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<GlobalCredentialResponse> {
     val errors = mutableListOf<GlobalCredentialResponse>()
     if (department_id <= 0) errors.add(GlobalCredentialResponse(400, false, "department_id is required"))
