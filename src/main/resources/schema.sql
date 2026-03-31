@@ -275,3 +275,61 @@ VALUES
     ('session_revoke_self_other', 'Revoke own other sessions'),
     ('session_revoke_any', 'Revoke any session in allowed scope')
 ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS queue_status_history (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_status VARCHAR(50) NOT NULL,
+    to_status VARCHAR(50) NOT NULL,
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    metadata_json TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_transfers (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_queue_type_id INT NULL REFERENCES queue_types(id),
+    to_queue_type_id INT NULL REFERENCES queue_types(id),
+    from_department_id INT NULL REFERENCES departments(id),
+    to_department_id INT NULL REFERENCES departments(id),
+    from_window_id INT NULL REFERENCES windows(id),
+    to_window_id INT NULL REFERENCES windows(id),
+    from_company_transaction_id INT NULL REFERENCES company_transactions(id),
+    to_company_transaction_id INT NULL REFERENCES company_transactions(id),
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_assignment_history (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_handler_id INT NULL REFERENCES handlers(id),
+    to_handler_id INT NULL REFERENCES handlers(id),
+    from_window_id INT NULL REFERENCES windows(id),
+    to_window_id INT NULL REFERENCES windows(id),
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_status_history_ticket ON queue_status_history(ticket_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ticket_transfers_ticket ON ticket_transfers(ticket_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ticket_assignment_history_ticket ON ticket_assignment_history(ticket_id, created_at DESC);
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('handler_call_next', 'Handler can call next ticket'),
+    ('handler_recall', 'Handler can recall active ticket'),
+    ('handler_hold', 'Handler can hold active ticket'),
+    ('handler_no_show', 'Handler can mark ticket as no show'),
+    ('handler_transfer', 'Handler can transfer ticket'),
+    ('handler_complete', 'Handler can complete ticket'),
+    ('ticket_cancel', 'Can cancel ticket'),
+    ('supervisor_override', 'Can override workflow restrictions')
+ON CONFLICT (code) DO NOTHING;

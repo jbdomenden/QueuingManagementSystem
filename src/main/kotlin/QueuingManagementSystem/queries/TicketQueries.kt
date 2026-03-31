@@ -226,3 +226,104 @@ FROM handler_sessions hs
 JOIN display_board_windows dbw ON dbw.window_id = hs.window_id
 WHERE hs.handler_id = ? AND hs.is_active = true
 """
+
+const val getCurrentHandlerActiveTicketQuery = """
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+       t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
+FROM tickets t
+WHERE t.assigned_handler_id = ?
+  AND t.archived = false
+  AND t.status IN ('CALLED', 'IN_SERVICE', 'HOLD')
+ORDER BY t.last_action_at DESC
+LIMIT 1
+"""
+
+const val getHandlerWindowContextQuery = """
+SELECT hs.handler_id, hs.user_id, h.department_id, hs.window_id
+FROM handler_sessions hs
+JOIN handlers h ON h.id = hs.handler_id
+WHERE hs.handler_id = ?
+  AND hs.is_active = true
+ORDER BY hs.id DESC
+LIMIT 1
+"""
+
+const val getHandlerDashboardMetricsQuery = """
+SELECT
+    COUNT(*) FILTER (WHERE status = 'WAITING') AS waiting_count,
+    COUNT(*) FILTER (WHERE status = 'CALLED') AS called_count,
+    COUNT(*) FILTER (WHERE status = 'IN_SERVICE') AS serving_count,
+    COUNT(*) FILTER (WHERE status = 'HOLD') AS hold_count,
+    COUNT(*) FILTER (WHERE status = 'SKIPPED') AS no_show_count,
+    COUNT(*) FILTER (WHERE status = 'COMPLETED') AS completed_count,
+    COUNT(*) FILTER (WHERE status = 'CANCELLED') AS cancelled_count
+FROM tickets
+WHERE department_id = ?
+  AND service_date = CURRENT_DATE
+  AND archived = false
+"""
+
+const val getTicketForUpdateQuery = """
+SELECT id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name,
+       kiosk_id, assigned_window_id, assigned_handler_id, status, created_at::text, called_at::text, completed_at::text
+FROM tickets
+WHERE id = ?
+FOR UPDATE
+"""
+
+const val updateTicketLifecycleByIdQuery = """
+UPDATE tickets
+SET status = ?,
+    assigned_handler_id = COALESCE(?, assigned_handler_id),
+    assigned_window_id = COALESCE(?, assigned_window_id),
+    queue_type_id = COALESCE(?, queue_type_id),
+    department_id = COALESCE(?, department_id),
+    company_transaction_id = COALESCE(?, company_transaction_id),
+    called_at = CASE WHEN ? = 'CALLED' THEN NOW() ELSE called_at END,
+    service_started_at = CASE WHEN ? = 'IN_SERVICE' THEN NOW() ELSE service_started_at END,
+    completed_at = CASE WHEN ? = 'COMPLETED' THEN NOW() ELSE completed_at END,
+    last_action_at = NOW(),
+    updated_at = NOW()
+WHERE id = ?
+  AND archived = false
+"""
+
+const val insertQueueStatusHistoryQuery = """
+INSERT INTO queue_status_history(ticket_id, from_status, to_status, actor_user_id, actor_handler_id, reason, metadata_json, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, NOW())
+"""
+
+const val insertTicketTransferQuery = """
+INSERT INTO ticket_transfers(ticket_id, from_queue_type_id, to_queue_type_id, from_department_id, to_department_id, from_window_id, to_window_id,
+                             from_company_transaction_id, to_company_transaction_id, actor_user_id, actor_handler_id, reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+"""
+
+const val insertTicketAssignmentHistoryQuery = """
+INSERT INTO ticket_assignment_history(ticket_id, from_handler_id, to_handler_id, from_window_id, to_window_id, actor_user_id, actor_handler_id, reason, created_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
+"""
+
+const val getOldestWaitingTicketForHandlerQuery = """
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+       t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
+FROM tickets t
+JOIN window_queue_types wqt ON wqt.queue_type_id = t.queue_type_id
+JOIN handler_sessions hs ON hs.window_id = wqt.window_id
+WHERE hs.handler_id = ?
+  AND hs.is_active = true
+  AND t.status = 'WAITING'
+  AND t.archived = false
+ORDER BY t.created_at ASC
+FOR UPDATE SKIP LOCKED
+LIMIT 1
+"""
+
+const val getUserTicketHistoryQuery = """
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+       t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
+FROM tickets t
+WHERE t.assigned_handler_id = ?
+ORDER BY t.updated_at DESC
+LIMIT ? OFFSET ?
+"""
