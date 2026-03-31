@@ -4,6 +4,7 @@ import io.ktor.server.application.Application
 import QueuingManagementSystem.plugins.configureRouting
 import QueuingManagementSystem.plugins.configureSerialization
 import QueuingManagementSystem.plugins.configureSockets
+import QueuingManagementSystem.config.ConnectionPoolManager
 import QueuingManagementSystem.config.UserSeeder
 
 fun main(args: Array<String>) {
@@ -11,8 +12,15 @@ fun main(args: Array<String>) {
 }
 
 fun Application.module() {
+    val postgresUrl = environment.config.property("postgres.url").getString()
+    val postgresUser = environment.config.property("postgres.user").getString()
+    val postgresPassword = environment.config.property("postgres.password").getString()
+    ConnectionPoolManager.configure(postgresUrl, postgresUser, postgresPassword)
+
     configureSerialization()
     configureSockets()
     configureRouting()
-    UserSeeder.seedUsers()
+
+    runCatching { UserSeeder.seedUsers() }
+        .onFailure { println("UserSeeder skipped: ${it.message}") }
 }
