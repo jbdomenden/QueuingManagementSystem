@@ -25,6 +25,13 @@ import io.ktor.server.http.content.staticResources
 import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class RootIndexResponse(
+    val message: String,
+    val endpoints: Map<String, String>
+)
 
 fun Application.configureRouting() {
     routing {
