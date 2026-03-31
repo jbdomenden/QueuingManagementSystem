@@ -24,14 +24,21 @@ import io.ktor.server.http.content.staticResources
 import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
+import kotlinx.serialization.Serializable
+
+@Serializable
+data class RootIndexResponse(
+    val message: String,
+    val endpoints: Map<String, String>
+)
 
 fun Application.configureRouting() {
     routing {
         get("/") {
             call.respond(
-                mapOf(
-                    "message" to "Available quick-access endpoints",
-                    "endpoints" to mapOf(
+                RootIndexResponse(
+                    message = "Available quick-access endpoints",
+                    endpoints = mapOf(
                         "kiosk" to "/kiosk.html",
                         "display" to "/display.html",
                         "user" to "/admin.html"

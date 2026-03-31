@@ -69,6 +69,27 @@ ORDER BY created_at DESC
 LIMIT 100
 """
 
+const val getWaitingTicketsForHandlerQueueQuery = """
+WITH current_window AS (
+    SELECT hs.window_id
+    FROM handler_sessions hs
+    WHERE hs.handler_id = ?
+      AND hs.is_active = true
+    ORDER BY hs.id DESC
+    LIMIT 1
+)
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id,
+       t.crew_identifier, t.crew_identifier_type, t.crew_name, t.transaction_family, t.workflow_template_id, t.kiosk_id,
+       t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
+FROM tickets t
+JOIN window_queue_types wqt ON wqt.queue_type_id = t.queue_type_id
+JOIN current_window cw ON cw.window_id = wqt.window_id
+WHERE t.status = 'WAITING'
+  AND t.archived = false
+ORDER BY t.created_at ASC
+LIMIT 300
+"""
+
 const val getWaitingTicketForHandlerCallNextWithLockingQuery = """
 WITH current_window AS (
     SELECT hs.window_id
