@@ -18,6 +18,7 @@ import QueuingManagementSystem.routes.sessionRoutes
 import QueuingManagementSystem.routes.ticketRoutes
 import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
+import QueuingManagementSystem.routes.workflowTemplateRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.http.content.staticResources
 import io.ktor.server.response.respondRedirect
@@ -47,6 +48,7 @@ fun Application.configureRouting() {
         kioskRoutes()
         displayRoutes()
         ticketRoutes()
+        workflowTemplateRoutes()
         reportRoutes()
         auditRoutes()
         realtimeRoutes()

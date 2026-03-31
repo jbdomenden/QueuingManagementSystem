@@ -57,3 +57,11 @@
 - `GET /realtime/ws/handler/{handlerId}?windowId=` (websocket)
 - `GET /realtime/ws/display/{displayId}?department_id=&area_id=&floor_id=&company_id=` (websocket, permission: `display_view` + display scope)
 - `GET /realtime/ws/admin` (websocket)
+
+## Workflow Template Routes
+- `POST /workflow-templates/create` (permission: `workflow_template_manage`)
+- `PUT /workflow-templates/update` (permission: `workflow_template_manage`)
+- `POST /workflow-templates/assign` (permission: `workflow_template_assign`)
+- `POST /workflow-templates/toggle` (permission: `workflow_template_manage`)
+- `GET /workflow-templates/list?include_inactive=` (permission: `workflow_template_view`)
+- `GET /workflow-templates/active?department_id=&queue_type_id=&company_id=&company_transaction_id=&transaction_family=` (permission: `workflow_template_view`)

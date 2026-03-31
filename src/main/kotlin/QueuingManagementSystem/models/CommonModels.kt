@@ -15,6 +15,13 @@ data class IdResponse(
     val result: QueuingManagementSystem.models.GlobalCredentialResponse
 )
 
+
+@Serializable
+data class SingleResponse<T>(
+    val data: T,
+    val result: QueuingManagementSystem.models.GlobalCredentialResponse
+)
+
 @Serializable
 data class ListResponse<T>(
     val data: List<T>,

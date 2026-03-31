@@ -293,6 +293,113 @@ VALUES
     ('display_scope_global', 'Display access across all departments')
 ON CONFLICT (code) DO NOTHING;
 
+
+
+CREATE TABLE IF NOT EXISTS workflow_templates (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(100) NOT NULL UNIQUE,
+    name VARCHAR(255) NOT NULL,
+    description TEXT NULL,
+    transaction_family VARCHAR(100) NULL,
+    config_json JSONB NULL DEFAULT '{}'::jsonb,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by INT NULL REFERENCES users(id),
+    updated_by INT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_steps (
+    id SERIAL PRIMARY KEY,
+    template_id INT NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
+    step_code VARCHAR(100) NOT NULL,
+    step_name VARCHAR(255) NOT NULL,
+    step_order INT NOT NULL DEFAULT 0,
+    status_on_enter VARCHAR(50) NULL,
+    status_on_exit VARCHAR(50) NULL,
+    is_required BOOLEAN NOT NULL DEFAULT TRUE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    config_json JSONB NULL DEFAULT '{}'::jsonb,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(template_id, step_code)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_department_assignments (
+    id SERIAL PRIMARY KEY,
+    template_id INT NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
+    department_id INT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(template_id, department_id)
+);
+
+CREATE TABLE IF NOT EXISTS workflow_transaction_bindings (
+    id SERIAL PRIMARY KEY,
+    template_id INT NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
+    department_id INT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    company_id INT NULL REFERENCES companies(id) ON DELETE CASCADE,
+    queue_type_id INT NULL REFERENCES queue_types(id) ON DELETE CASCADE,
+    company_transaction_id INT NULL REFERENCES company_transactions(id) ON DELETE CASCADE,
+    transaction_family VARCHAR(100) NULL,
+    priority INT NOT NULL DEFAULT 0,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_by INT NULL REFERENCES users(id),
+    updated_by INT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_status_rules (
+    id SERIAL PRIMARY KEY,
+    template_id INT NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
+    from_status VARCHAR(50) NOT NULL,
+    to_status VARCHAR(50) NOT NULL,
+    is_allowed BOOLEAN NOT NULL DEFAULT TRUE,
+    reason_required BOOLEAN NOT NULL DEFAULT FALSE,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS workflow_template_audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    template_id INT NOT NULL REFERENCES workflow_templates(id) ON DELETE CASCADE,
+    actor_user_id INT NULL REFERENCES users(id),
+    action VARCHAR(100) NOT NULL,
+    payload_json TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_workflow_bindings_match ON workflow_transaction_bindings(department_id, queue_type_id, company_id, company_transaction_id, transaction_family, is_active);
+CREATE INDEX IF NOT EXISTS idx_workflow_template_active ON workflow_templates(is_active);
+CREATE INDEX IF NOT EXISTS idx_workflow_department_assignments_dept ON workflow_department_assignments(department_id, is_active);
+
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS transaction_family VARCHAR(100) NULL;
+ALTER TABLE tickets ADD COLUMN IF NOT EXISTS workflow_template_id INT NULL REFERENCES workflow_templates(id);
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('workflow_template_manage', 'Create/update/enable workflow templates'),
+    ('workflow_template_view', 'View workflow templates and active bindings'),
+    ('workflow_template_assign', 'Assign workflow templates to departments/transactions')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO workflow_templates(code, name, description, transaction_family, config_json, is_active, created_at, updated_at)
+VALUES
+    ('FLIGHT_CANCELLATION', 'Flight Cancellation', 'Configurable workflow template migrated from legacy special workflow', 'FLIGHT_CANCELLATION', '{"legacy_workflow":"Flight Cancellation"}'::jsonb, true, NOW(), NOW()),
+    ('OEC_MONITORING', 'OEC Monitoring', 'Configurable workflow template migrated from legacy special workflow', 'OEC_MONITORING', '{"legacy_workflow":"OEC Monitoring"}'::jsonb, true, NOW(), NOW()),
+    ('OWWA_MONITORING', 'OWWA Monitoring', 'Configurable workflow template migrated from legacy special workflow', 'OWWA_MONITORING', '{"legacy_workflow":"OWWA Monitoring"}'::jsonb, true, NOW(), NOW()),
+    ('WORKING_GEARS', 'Working Gears', 'Configurable workflow template migrated from legacy special workflow', 'WORKING_GEARS', '{"legacy_workflow":"Working Gears"}'::jsonb, true, NOW(), NOW())
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO workflow_transaction_bindings(template_id, transaction_family, priority, is_active, created_at, updated_at)
+SELECT id, transaction_family, 100, true, NOW(), NOW()
+FROM workflow_templates
+WHERE code IN ('FLIGHT_CANCELLATION', 'OEC_MONITORING', 'OWWA_MONITORING', 'WORKING_GEARS')
+ON CONFLICT DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS queue_status_history (
     id BIGSERIAL PRIMARY KEY,
     ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,

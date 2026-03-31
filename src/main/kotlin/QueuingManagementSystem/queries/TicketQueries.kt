@@ -30,9 +30,9 @@ WHERE d.id = ?
 """
 
 const val postTicketQuery = """
-INSERT INTO tickets(ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
-VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
-RETURNING id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, kiosk_id, assigned_window_id, assigned_handler_id,
+INSERT INTO tickets(ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, transaction_family, workflow_template_id, kiosk_id, service_date, status, created_at, last_action_at, updated_at, archived)
+VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_DATE, 'WAITING', NOW(), NOW(), NOW(), false)
+RETURNING id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, transaction_family, workflow_template_id, kiosk_id, assigned_window_id, assigned_handler_id,
           status, created_at::text, called_at::text, completed_at::text
 """
 
@@ -60,7 +60,7 @@ WHERE t.id = ?
 """
 
 const val getLiveTicketsByDepartmentQuery = """
-SELECT id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, kiosk_id, assigned_window_id, assigned_handler_id,
+SELECT id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, transaction_family, workflow_template_id, kiosk_id, assigned_window_id, assigned_handler_id,
        status, created_at::text, called_at::text, completed_at::text
 FROM tickets
 WHERE department_id = ?
@@ -97,7 +97,7 @@ SET status = 'CALLED',
     updated_at = NOW()
 FROM candidate
 WHERE t.id = candidate.id
-RETURNING t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name, t.kiosk_id, t.assigned_window_id, t.assigned_handler_id,
+RETURNING t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name, t.transaction_family, t.workflow_template_id, t.kiosk_id, t.assigned_window_id, t.assigned_handler_id,
           t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 """
 
@@ -228,7 +228,7 @@ WHERE hs.handler_id = ? AND hs.is_active = true
 """
 
 const val getCurrentHandlerActiveTicketQuery = """
-SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name, t.transaction_family, t.workflow_template_id,
        t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 FROM tickets t
 WHERE t.assigned_handler_id = ?
@@ -264,7 +264,7 @@ WHERE department_id = ?
 """
 
 const val getTicketForUpdateQuery = """
-SELECT id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name,
+SELECT id, ticket_number, department_id, queue_type_id, company_id, company_transaction_id, destination_id, crew_identifier, crew_identifier_type, crew_name, transaction_family, workflow_template_id,
        kiosk_id, assigned_window_id, assigned_handler_id, status, created_at::text, called_at::text, completed_at::text
 FROM tickets
 WHERE id = ?
@@ -305,7 +305,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())
 """
 
 const val getOldestWaitingTicketForHandlerQuery = """
-SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name, t.transaction_family, t.workflow_template_id,
        t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 FROM tickets t
 JOIN window_queue_types wqt ON wqt.queue_type_id = t.queue_type_id
@@ -320,7 +320,7 @@ LIMIT 1
 """
 
 const val getUserTicketHistoryQuery = """
-SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name,
+SELECT t.id, t.ticket_number, t.department_id, t.queue_type_id, t.company_id, t.company_transaction_id, t.destination_id, t.crew_identifier, t.crew_identifier_type, t.crew_name, t.transaction_family, t.workflow_template_id,
        t.kiosk_id, t.assigned_window_id, t.assigned_handler_id, t.status, t.created_at::text, t.called_at::text, t.completed_at::text
 FROM tickets t
 WHERE t.assigned_handler_id = ?
