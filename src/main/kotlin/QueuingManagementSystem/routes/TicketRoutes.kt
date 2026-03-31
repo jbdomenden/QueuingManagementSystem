@@ -2,6 +2,7 @@ package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.common.UserRole
+import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.controllers.TicketController
@@ -200,7 +201,7 @@ fun Route.ticketRoutes() {
 
                 val request = call.receive<ArchiveDayRequest>()
                 val departmentId = request.departmentId ?: session.departmentId
-                if (request.departmentId != null && !session.permissions.contains("report_view_global") && !session.departmentScopes.contains(request.departmentId)) {
+                if (request.departmentId != null && !session.permissions.contains("report_view_global") && !session.canAccessDepartment(request.departmentId)) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
                 val archivedCount = controller.archiveQueuesByServiceDate(request.serviceDate, session.userId, departmentId)

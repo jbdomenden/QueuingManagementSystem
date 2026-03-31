@@ -13,14 +13,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.route
 
 fun Route.sessionRoutes() {
-    val config = application.environment.config
-    val authController = AuthController(
-        jwtSecret = config.propertyOrNull("auth.jwt.secret")?.getString() ?: "change-me-secret",
-        jwtIssuer = config.propertyOrNull("auth.jwt.issuer")?.getString() ?: "qms",
-        jwtAudience = config.propertyOrNull("auth.jwt.audience")?.getString() ?: "qms-clients",
-        jwtExpirationMinutes = config.propertyOrNull("auth.jwt.expirationMinutes")?.getString()?.toLongOrNull() ?: 480L,
-        singleSessionEnforced = config.propertyOrNull("auth.singleSessionEnforced")?.getString()?.toBooleanStrictOrNull() ?: false
-    )
+    val authController = AuthController()
     val sessionController = SessionController()
 
     route("/sessions") {

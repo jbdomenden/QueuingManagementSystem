@@ -23,7 +23,8 @@ suspend fun RoutingContext.requirePermission(authController: AuthController, per
 
 fun ApplicationRequest.clientIpAddress(): String {
     return headers["X-Forwarded-For"]?.split(",")?.firstOrNull()?.trim()
-        ?: origin.remoteHost
+        ?: headers["X-Real-IP"]
+        ?: local.remoteHost
 }
 
 fun ApplicationRequest.clientUserAgent(): String {

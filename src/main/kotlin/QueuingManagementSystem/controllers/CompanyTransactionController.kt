@@ -51,7 +51,19 @@ class CompanyTransactionController {
                 statement.executeQuery().use { rs -> if (rs.next()) return mapCompanyTransaction(rs) }
             }
         }
-        return CompanyTransaction(0, 0, "", "", null, 0, "INACTIVE", "", "")
+        return CompanyTransaction(
+            id = 0,
+            companyId = 0,
+            transactionCode = "",
+            transactionName = "",
+            transactionSubtitle = null,
+            requiresCrewValidation = false,
+            inputMode = "NONE",
+            sortOrder = 0,
+            status = "INACTIVE",
+            createdAt = "",
+            updatedAt = ""
+        )
     }
 
     fun postCompanyTransaction(request: CompanyTransactionRequest): Int {
