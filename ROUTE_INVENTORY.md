@@ -3,6 +3,7 @@
 This inventory reflects the currently wired Ktor routes in `src/main/kotlin/QueuingManagementSystem/routes`.
 
 ## Auth
+- `GET /` (quick-access endpoint map for kiosk/display/user)
 - `POST /auth/login`
 - `POST /auth/logout`
 - `GET /auth/validate`

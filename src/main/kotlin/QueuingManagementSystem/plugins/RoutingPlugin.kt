@@ -21,14 +21,23 @@ import QueuingManagementSystem.routes.windowRoutes
 import QueuingManagementSystem.routes.workflowTemplateRoutes
 import io.ktor.server.application.Application
 import io.ktor.server.http.content.staticResources
-import io.ktor.server.response.respondRedirect
+import io.ktor.server.response.respond
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
 fun Application.configureRouting() {
     routing {
         get("/") {
-            call.respondRedirect("/kiosk.html")
+            call.respond(
+                mapOf(
+                    "message" to "Available quick-access endpoints",
+                    "endpoints" to mapOf(
+                        "kiosk" to "/kiosk.html",
+                        "display" to "/display.html",
+                        "user" to "/admin.html"
+                    )
+                )
+            )
         }
 
         staticResources("", "static")
