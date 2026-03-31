@@ -14,6 +14,7 @@ class TicketController {
                 var resolvedCompanyId = request.company_id
                 var resolvedCompanyTransactionId = request.company_transaction_id
                 var resolvedDestinationId = request.destination_id
+                val resolvedTransactionFamily = request.transaction_family?.trim()?.ifBlank { null }
 
                 if (resolvedDestinationId != null) {
                     var destinationQueueTypeId = 0
@@ -92,6 +93,18 @@ class TicketController {
                 }
                 if (!kioskAllowed) throw IllegalStateException("kiosk is not mapped to queue type")
 
+                var resolvedWorkflowTemplateId: Int? = null
+                connection.prepareStatement(getActiveWorkflowTemplateByBindingQuery).use { statement ->
+                    statement.setInt(1, departmentId)
+                    statement.setInt(2, resolvedQueueTypeId)
+                    if (resolvedCompanyId == null) statement.setNull(3, java.sql.Types.INTEGER) else statement.setInt(3, resolvedCompanyId)
+                    if (resolvedCompanyTransactionId == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, resolvedCompanyTransactionId)
+                    statement.setString(5, resolvedTransactionFamily)
+                    statement.executeQuery().use { rs ->
+                        if (rs.next()) resolvedWorkflowTemplateId = rs.getInt("id").let { if (rs.wasNull()) null else it }
+                    }
+                }
+
                 var sequence = 0
                 connection.prepareStatement(upsertQueueDailySequenceQuery).use { statement ->
                     statement.setInt(1, resolvedQueueTypeId)
@@ -121,7 +134,9 @@ class TicketController {
                     statement.setString(7, request.crew_identifier)
                     statement.setString(8, request.crew_identifier_type)
                     statement.setString(9, request.crew_name)
-                    statement.setInt(10, request.kiosk_id)
+                    statement.setString(10, resolvedTransactionFamily)
+                    if (resolvedWorkflowTemplateId == null) statement.setNull(11, java.sql.Types.INTEGER) else statement.setInt(11, resolvedWorkflowTemplateId)
+                    statement.setInt(12, request.kiosk_id)
                     statement.executeQuery().use { rs -> if (rs.next()) ticket = mapTicket(rs) }
                 }
 
@@ -131,7 +146,7 @@ class TicketController {
                     statement.setInt(1, ticket.id)
                     statement.setString(2, "CREATED")
                     statement.setNull(3, java.sql.Types.INTEGER)
-                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id},\"company_id\":${resolvedCompanyId},\"company_transaction_id\":${resolvedCompanyTransactionId},\"destination_id\":${resolvedDestinationId},\"crew_identifier\":\"${request.crew_identifier ?: ""}\"}")
+                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id},\"company_id\":${resolvedCompanyId},\"company_transaction_id\":${resolvedCompanyTransactionId},\"destination_id\":${resolvedDestinationId},\"transaction_family\":\"${resolvedTransactionFamily ?: ""}\",\"workflow_template_id\":${resolvedWorkflowTemplateId},\"crew_identifier\":\"${request.crew_identifier ?: ""}\"}")
                     statement.executeUpdate()
                 }
 
@@ -834,6 +849,8 @@ WHERE id = ?
             crew_identifier = rs.getString("crew_identifier"),
             crew_identifier_type = rs.getString("crew_identifier_type"),
             crew_name = rs.getString("crew_name"),
+            transaction_family = rs.getString("transaction_family"),
+            workflow_template_id = rs.getInt("workflow_template_id").let { if (rs.wasNull()) null else it },
             kiosk_id = rs.getInt("kiosk_id").let { if (rs.wasNull()) null else it },
             assigned_window_id = rs.getInt("assigned_window_id").let { if (rs.wasNull()) null else it },
             assigned_handler_id = rs.getInt("assigned_handler_id").let { if (rs.wasNull()) null else it },

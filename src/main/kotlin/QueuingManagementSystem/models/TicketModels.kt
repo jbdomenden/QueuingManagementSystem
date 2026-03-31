@@ -11,7 +11,8 @@ data class TicketCreateRequest(
     val destination_id: Int? = null,
     val crew_identifier: String? = null,
     val crew_identifier_type: String? = null,
-    val crew_name: String? = null
+    val crew_name: String? = null,
+    val transaction_family: String? = null
 )
 
 @Serializable
@@ -69,6 +70,8 @@ data class TicketModel(
     val crew_identifier: String? = null,
     val crew_identifier_type: String? = null,
     val crew_name: String? = null,
+    val transaction_family: String? = null,
+    val workflow_template_id: Int? = null,
     val kiosk_id: Int?,
     val assigned_window_id: Int?,
     val assigned_handler_id: Int?,
@@ -163,6 +166,7 @@ fun TicketCreateRequest.validateTicketCreateRequest(): MutableList<GlobalCredent
     if (company_transaction_id != null && company_transaction_id <= 0) errors.add(GlobalCredentialResponse(400, false, "company_transaction_id must be greater than 0"))
     if ((company_id == null) != (company_transaction_id == null)) errors.add(GlobalCredentialResponse(400, false, "company_id and company_transaction_id must both be provided together"))
     if (crew_identifier_type != null && crew_identifier_type !in listOf("KEYPAD", "RFID")) errors.add(GlobalCredentialResponse(400, false, "crew_identifier_type must be KEYPAD or RFID"))
+    if (transaction_family != null && transaction_family.isBlank()) errors.add(GlobalCredentialResponse(400, false, "transaction_family cannot be blank"))
     return errors
 }
 

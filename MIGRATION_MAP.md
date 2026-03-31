@@ -34,3 +34,25 @@
 ### Commit-bound aggregation guarantee
 - Ticket lifecycle mutations are committed before realtime publish calls are triggered by routes/controllers.
 - Display aggregation queries read committed database state only, ensuring LCD payloads reflect committed transitions.
+
+## Legacy Special Workflow Migration (Template-Driven)
+
+### Legacy workflow: Flight Cancellation
+- Mapped to seeded workflow template code `FLIGHT_CANCELLATION` in `workflow_templates`.
+- Bound through `workflow_transaction_bindings.transaction_family = 'FLIGHT_CANCELLATION'` so it is selected by active workflow resolution without hardcoded page logic.
+
+### Legacy workflow: OEC Monitoring
+- Mapped to seeded workflow template code `OEC_MONITORING`.
+- Activated through configurable binding records and optional department/queue/company/transaction scoping.
+
+### Legacy workflow: OWWA Monitoring
+- Mapped to seeded workflow template code `OWWA_MONITORING`.
+- Uses the same generic workflow template engine and binding model (no custom module duplication).
+
+### Legacy workflow: Working Gears
+- Mapped to seeded workflow template code `WORKING_GEARS`.
+- Retrieved by generic active workflow lookup and associated to tickets via `tickets.workflow_template_id`.
+
+### Generic extensibility path
+- Additional special workflows can be onboarded by creating rows in `workflow_templates`, defining `workflow_steps` and `workflow_status_rules`, then assigning through `workflow_transaction_bindings` and/or `workflow_department_assignments`.
+- Ticket creation now resolves active workflow bindings and stores selected template id on the ticket, preserving generic lifecycle behavior while enabling template-specific orchestration.
