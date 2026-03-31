@@ -29,7 +29,7 @@
 
 ### Legacy behavior: real-time display updates without polling
 - Existing display websocket path is preserved and extended with scoped aggregate payload streaming.
-- `EventPublisher` now broadcasts aggregate snapshots per websocket subscription filter when ticket lifecycle events are committed.
+- `EventPublisher` broadcasts aggregate snapshots per websocket subscription filter after ticket lifecycle actions return success from committed controller transactions.
 
 ### Commit-bound aggregation guarantee
 - Ticket lifecycle mutations are committed before realtime publish calls are triggered by routes/controllers.
@@ -55,4 +55,16 @@
 
 ### Generic extensibility path
 - Additional special workflows can be onboarded by creating rows in `workflow_templates`, defining `workflow_steps` and `workflow_status_rules`, then assigning through `workflow_transaction_bindings` and/or `workflow_department_assignments`.
-- Ticket creation now resolves active workflow bindings and stores selected template id on the ticket, preserving generic lifecycle behavior while enabling template-specific orchestration.
+- Ticket creation resolves active workflow bindings and stores selected template id on the ticket.
+
+## Stabilization Pass Mapping (No New Scope)
+
+### Permission + scope coherence
+- Department access checks are now normalized around `canAccessDepartment(...)` for scoped admin operations, including kiosk management and archive-by-day scoping.
+- Kiosk management endpoints now consistently require authenticated admin sessions (super admin or department admin), and queue type assignments are constrained to kiosk department scope.
+
+### SQL and persistence safety
+- Ticket creation audit metadata remains parameterized and now builds JSON payloads through structured JSON construction instead of interpolated string fragments.
+
+### Credential hardening
+- Password validation now uses a shared policy for both user creation and password change flows, removing weak minimum-length-only checks.
