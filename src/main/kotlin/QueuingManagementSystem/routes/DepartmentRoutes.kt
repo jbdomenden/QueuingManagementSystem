@@ -7,12 +7,14 @@ import io.ktor.server.routing.*
 import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.DepartmentController
 import QueuingManagementSystem.models.validateDepartmentRequest
 import QueuingManagementSystem.models.*
 
 fun Route.departmentRoutes() {
     val authController = QueuingManagementSystem.controllers.AuthController()
+    val auditController = AuditController()
     val departmentController = QueuingManagementSystem.controllers.DepartmentController()
     route("/departments") {
         post("/create") {
@@ -24,9 +26,11 @@ fun Route.departmentRoutes() {
                 val request = call.receive<QueuingManagementSystem.models.DepartmentRequest>()
                 val errors = request.validateDepartmentRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+                val createdId = departmentController.createDepartment(request)
+                if (createdId > 0) auditController.createAuditLog(session.user_id, createdId, "ADMIN_SCOPE_DEPARTMENT_CREATE", "departments", createdId.toString(), "{\"code\":\"${request.code}\"}")
                 call.respond(HttpStatusCode.OK,
                     QueuingManagementSystem.models.IdResponse(
-                        departmentController.createDepartment(request),
+                        createdId,
                         QueuingManagementSystem.models.GlobalCredentialResponse(
                             200,
                             true,
@@ -57,10 +61,12 @@ fun Route.departmentRoutes() {
                         "id is required"
                     )
                 ) })
+                val updated = departmentController.updateDepartment(request)
+                if (updated) auditController.createAuditLog(session.user_id, request.id, "ADMIN_SCOPE_DEPARTMENT_UPDATE", "departments", request.id.toString(), "{\"code\":\"${request.code}\"}")
                 call.respond(HttpStatusCode.OK,
                     QueuingManagementSystem.models.GlobalCredentialResponse(
                         200,
-                        departmentController.updateDepartment(request),
+                        updated,
                         "Department updated"
                     )
                 )

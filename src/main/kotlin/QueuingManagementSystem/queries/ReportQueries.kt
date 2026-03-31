@@ -72,3 +72,50 @@ WHERE archived = true
 GROUP BY department_id, queue_type_id, status
 ORDER BY department_id, queue_type_id, status
 """
+
+const val getDailyArchiveMetricsByDepartmentQuery = """
+SELECT archive_date::text,
+       department_id,
+       queue_type_id,
+       COALESCE(company_id, 0) AS company_id,
+       SUM(waiting_count)::int AS waiting_count,
+       SUM(called_count)::int AS called_count,
+       SUM(in_service_count)::int AS in_service_count,
+       SUM(hold_count)::int AS hold_count,
+       SUM(no_show_count)::int AS no_show_count,
+       SUM(completed_count)::int AS completed_count,
+       SUM(cancelled_count)::int AS cancelled_count,
+       SUM(transferred_count)::int AS transferred_count,
+       SUM(override_count)::int AS override_count,
+       COALESCE(AVG(avg_waiting_seconds)::bigint, 0) AS avg_waiting_seconds,
+       COALESCE(AVG(avg_serving_seconds)::bigint, 0) AS avg_serving_seconds,
+       SUM(source_ticket_count)::int AS total_tickets
+FROM daily_queue_archive
+WHERE archive_date BETWEEN ?::date AND ?::date
+  AND department_id = ?
+GROUP BY archive_date, department_id, queue_type_id, company_id
+ORDER BY archive_date DESC, queue_type_id
+"""
+
+const val getDailyArchiveMetricsAllDepartmentsQuery = """
+SELECT archive_date::text,
+       department_id,
+       queue_type_id,
+       COALESCE(company_id, 0) AS company_id,
+       SUM(waiting_count)::int AS waiting_count,
+       SUM(called_count)::int AS called_count,
+       SUM(in_service_count)::int AS in_service_count,
+       SUM(hold_count)::int AS hold_count,
+       SUM(no_show_count)::int AS no_show_count,
+       SUM(completed_count)::int AS completed_count,
+       SUM(cancelled_count)::int AS cancelled_count,
+       SUM(transferred_count)::int AS transferred_count,
+       SUM(override_count)::int AS override_count,
+       COALESCE(AVG(avg_waiting_seconds)::bigint, 0) AS avg_waiting_seconds,
+       COALESCE(AVG(avg_serving_seconds)::bigint, 0) AS avg_serving_seconds,
+       SUM(source_ticket_count)::int AS total_tickets
+FROM daily_queue_archive
+WHERE archive_date BETWEEN ?::date AND ?::date
+GROUP BY archive_date, department_id, queue_type_id, company_id
+ORDER BY archive_date DESC, department_id, queue_type_id
+"""

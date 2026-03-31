@@ -3,6 +3,7 @@ package QueuingManagementSystem.routes
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.QueueTypeController
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.models.validateQueueTypeRequest
@@ -13,6 +14,7 @@ import io.ktor.server.routing.*
 
 fun Route.queueTypeRoutes() {
     val authController = AuthController()
+    val auditController = AuditController()
     val controller = QueueTypeController()
 
     route("/queue-types") {
@@ -27,7 +29,11 @@ fun Route.queueTypeRoutes() {
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
                 if (!session.canAccessDepartment(request.department_id)) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
 
-                call.respond(HttpStatusCode.OK, IdResponse(controller.createQueueType(request), GlobalCredentialResponse(200, true, "Queue type created")))
+                val createdId = controller.createQueueType(request)
+                if (createdId > 0) {
+                    auditController.createAuditLog(session.userId, request.department_id, "ADMIN_SCOPE_QUEUE_TYPE_CREATE", "queue_types", createdId.toString(), "{\"department_id\":${request.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, IdResponse(createdId, GlobalCredentialResponse(200, true, "Queue type created")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }
@@ -46,7 +52,11 @@ fun Route.queueTypeRoutes() {
                     return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, controller.updateQueueType(request), "Queue type updated"))
+                val updated = controller.updateQueueType(request)
+                if (updated && request.id != null) {
+                    auditController.createAuditLog(session.userId, request.department_id, "ADMIN_SCOPE_QUEUE_TYPE_UPDATE", "queue_types", request.id.toString(), "{\"department_id\":${request.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Queue type updated"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }

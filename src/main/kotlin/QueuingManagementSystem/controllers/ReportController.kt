@@ -100,4 +100,41 @@ class ReportController {
         }
         return list
     }
+
+    fun getDailyArchiveMetrics(dateFrom: String, dateTo: String, departmentId: Int?): MutableList<DailyArchiveMetricsModel> {
+        val list = mutableListOf<DailyArchiveMetricsModel>()
+        ConnectionPoolManager.getConnection().use { c ->
+            val query = if (departmentId == null) getDailyArchiveMetricsAllDepartmentsQuery else getDailyArchiveMetricsByDepartmentQuery
+            c.prepareStatement(query).use { s ->
+                s.setString(1, dateFrom)
+                s.setString(2, dateTo)
+                if (departmentId != null) s.setInt(3, departmentId)
+                s.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        list.add(
+                            DailyArchiveMetricsModel(
+                                archive_date = rs.getString("archive_date"),
+                                department_id = rs.getInt("department_id"),
+                                queue_type_id = rs.getInt("queue_type_id"),
+                                company_id = rs.getInt("company_id").let { if (it <= 0 || rs.wasNull()) null else it },
+                                waiting_count = rs.getInt("waiting_count"),
+                                called_count = rs.getInt("called_count"),
+                                in_service_count = rs.getInt("in_service_count"),
+                                hold_count = rs.getInt("hold_count"),
+                                no_show_count = rs.getInt("no_show_count"),
+                                completed_count = rs.getInt("completed_count"),
+                                cancelled_count = rs.getInt("cancelled_count"),
+                                transferred_count = rs.getInt("transferred_count"),
+                                override_count = rs.getInt("override_count"),
+                                avg_waiting_seconds = rs.getLong("avg_waiting_seconds"),
+                                avg_serving_seconds = rs.getLong("avg_serving_seconds"),
+                                total_tickets = rs.getInt("total_tickets")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return list
+    }
 }

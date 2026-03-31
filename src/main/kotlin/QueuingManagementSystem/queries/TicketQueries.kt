@@ -155,6 +155,67 @@ WHERE service_date = ?::date
   AND (? IS NULL OR department_id = ?)
 """
 
+const val upsertDailyQueueArchiveByServiceDateQuery = """
+INSERT INTO daily_queue_archive(
+    archive_date, department_id, queue_type_id, company_id, handler_id,
+    waiting_count, called_count, in_service_count, hold_count, no_show_count, completed_count, cancelled_count,
+    transferred_count, override_count, avg_waiting_seconds, avg_serving_seconds,
+    source_ticket_count, archived_ticket_count, process_reference, archive_metadata_json, created_by, created_at, updated_at
+)
+SELECT
+    t.service_date AS archive_date,
+    t.department_id,
+    t.queue_type_id,
+    t.company_id,
+    t.assigned_handler_id AS handler_id,
+    COUNT(*) FILTER (WHERE t.status = 'WAITING')::int AS waiting_count,
+    COUNT(*) FILTER (WHERE t.status = 'CALLED')::int AS called_count,
+    COUNT(*) FILTER (WHERE t.status = 'IN_SERVICE')::int AS in_service_count,
+    COUNT(*) FILTER (WHERE t.status = 'HOLD')::int AS hold_count,
+    COUNT(*) FILTER (WHERE t.status = 'SKIPPED')::int AS no_show_count,
+    COUNT(*) FILTER (WHERE t.status = 'COMPLETED')::int AS completed_count,
+    COUNT(*) FILTER (WHERE t.status = 'CANCELLED')::int AS cancelled_count,
+    COUNT(DISTINCT tr.id)::int AS transferred_count,
+    COUNT(DISTINCT CASE WHEN al.action ILIKE '%OVERRIDE%' THEN al.id END)::int AS override_count,
+    COALESCE(AVG(CASE WHEN t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.called_at - t.created_at)) END)::bigint, 0) AS avg_waiting_seconds,
+    COALESCE(AVG(CASE
+        WHEN t.completed_at IS NOT NULL AND t.service_started_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.service_started_at))
+        WHEN t.completed_at IS NOT NULL AND t.called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (t.completed_at - t.called_at))
+    END)::bigint, 0) AS avg_serving_seconds,
+    COUNT(*)::int AS source_ticket_count,
+    COUNT(*) FILTER (WHERE t.archived = true)::int AS archived_ticket_count,
+    ? AS process_reference,
+    ? AS archive_metadata_json,
+    ? AS created_by,
+    NOW(),
+    NOW()
+FROM tickets t
+LEFT JOIN ticket_transfers tr ON tr.ticket_id = t.id
+LEFT JOIN audit_logs al ON al.entity_name = 'ticket' AND al.entity_id = t.id::text
+WHERE t.service_date = ?::date
+  AND (? IS NULL OR t.department_id = ?)
+GROUP BY t.service_date, t.department_id, t.queue_type_id, t.company_id, t.assigned_handler_id
+ON CONFLICT (archive_date, department_id, queue_type_id, company_id, handler_id)
+DO UPDATE SET
+    waiting_count = EXCLUDED.waiting_count,
+    called_count = EXCLUDED.called_count,
+    in_service_count = EXCLUDED.in_service_count,
+    hold_count = EXCLUDED.hold_count,
+    no_show_count = EXCLUDED.no_show_count,
+    completed_count = EXCLUDED.completed_count,
+    cancelled_count = EXCLUDED.cancelled_count,
+    transferred_count = EXCLUDED.transferred_count,
+    override_count = EXCLUDED.override_count,
+    avg_waiting_seconds = EXCLUDED.avg_waiting_seconds,
+    avg_serving_seconds = EXCLUDED.avg_serving_seconds,
+    source_ticket_count = EXCLUDED.source_ticket_count,
+    archived_ticket_count = EXCLUDED.archived_ticket_count,
+    process_reference = EXCLUDED.process_reference,
+    archive_metadata_json = EXCLUDED.archive_metadata_json,
+    created_by = EXCLUDED.created_by,
+    updated_at = NOW()
+"""
+
 const val getArchivedTicketsByDepartmentAndDateRangeQuery = """
 SELECT id, ticket_number, department_id, queue_type_id, status, service_date::text, created_at::text,
        CASE WHEN called_at IS NOT NULL THEN EXTRACT(EPOCH FROM (called_at - created_at))::bigint

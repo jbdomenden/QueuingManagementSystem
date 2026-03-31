@@ -56,6 +56,7 @@ class AuthController(
 
                 if (userId <= 0 || !active) {
                     auditFailedLogin(connection, username, ipAddress, userAgent, "USER_NOT_FOUND_OR_INACTIVE")
+                    auditSessionLifecycle(connection, null, null, "FAILED_LOGIN", username, "USER_NOT_FOUND_OR_INACTIVE")
                     connection.commit()
                     return unauthorized()
                 }
@@ -64,6 +65,7 @@ class AuthController(
                 if (!passwordValid) {
                     auditFailedLogin(connection, username, ipAddress, userAgent, "INVALID_PASSWORD")
                     auditLogin(connection, userId, username, false, ipAddress, userAgent, "INVALID_PASSWORD")
+                    auditSessionLifecycle(connection, userId, departmentId, "FAILED_LOGIN", username, "INVALID_PASSWORD")
                     connection.commit()
                     return unauthorized()
                 }
@@ -192,6 +194,7 @@ class AuthController(
                 }
 
                 auditLogin(connection, validated.userId, validated.username, true, ipAddress, userAgent, "CHANGE_PASSWORD_SUCCESS")
+                auditSessionLifecycle(connection, validated.userId, validated.departmentId, "PASSWORD_CHANGE", validated.userId.toString(), "CHANGE_PASSWORD_SUCCESS")
                 connection.commit()
                 return GlobalCredentialResponse(200, true, "Password updated")
             } catch (e: Exception) {
