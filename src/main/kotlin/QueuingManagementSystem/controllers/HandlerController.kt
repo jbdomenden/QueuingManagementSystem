@@ -137,6 +137,18 @@ class HandlerController {
         return null
     }
 
+    fun getHandlerById(handlerId: Int): HandlerModel? {
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getHandlerByIdQuery).use { s ->
+                s.setInt(1, handlerId)
+                s.executeQuery().use { rs ->
+                    if (rs.next()) return HandlerModel(rs.getInt("id"), rs.getInt("user_id"), rs.getInt("department_id"), rs.getBoolean("is_active"))
+                }
+            }
+        }
+        return null
+    }
+
     fun getActiveHandlersForQueueType(queueTypeId: Int): MutableList<Int> {
         val ids = mutableListOf<Int>()
         ConnectionPoolManager.getConnection().use { c ->

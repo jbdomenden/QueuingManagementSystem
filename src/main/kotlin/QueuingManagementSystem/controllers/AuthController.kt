@@ -25,6 +25,7 @@ class AuthController(
         val fullName: String,
         val role: String,
         val departmentId: Int?,
+        val departmentScopes: List<Int>,
         val permissions: List<String>
     )
 
@@ -213,6 +214,7 @@ class AuthController(
         return UserSessionModel(
             user_id = validated.userId,
             department_id = validated.departmentId,
+            department_scopes = validated.departmentScopes,
             role = validated.role,
             token = token,
             permissions = validated.permissions
@@ -238,6 +240,9 @@ class AuthController(
                     }
                     val userId = rs.getInt("user_id")
                     val permissions = getPermissionsByUserId(connection, userId)
+                    val scopeDepartments = getDepartmentScopesByUserId(connection, userId).ifEmpty {
+                        validatedDepartmentScopeFallback(rs.getInt("department_id").let { if (rs.wasNull()) null else it })
+                    }
                     return ValidatedSession(
                         sessionId = sessionId,
                         userId = userId,
@@ -245,6 +250,7 @@ class AuthController(
                         fullName = rs.getString("full_name"),
                         role = rs.getString("role"),
                         departmentId = rs.getInt("department_id").let { if (rs.wasNull()) null else it },
+                        departmentScopes = scopeDepartments,
                         permissions = permissions
                     )
                 }
@@ -292,6 +298,21 @@ class AuthController(
             statement.executeQuery().use { rs -> while (rs.next()) permissions.add(rs.getString("code")) }
         }
         return permissions
+    }
+
+    private fun getDepartmentScopesByUserId(connection: java.sql.Connection, userId: Int): List<Int> {
+        val scopes = mutableListOf<Int>()
+        connection.prepareStatement(getUserDepartmentScopesQuery).use { statement ->
+            statement.setInt(1, userId)
+            statement.executeQuery().use { rs ->
+                while (rs.next()) scopes.add(rs.getInt("department_id"))
+            }
+        }
+        return scopes
+    }
+
+    private fun validatedDepartmentScopeFallback(defaultDepartmentId: Int?): List<Int> {
+        return if (defaultDepartmentId == null) emptyList() else listOf(defaultDepartmentId)
     }
 
     private fun auditLogin(connection: java.sql.Connection, userId: Int, username: String, success: Boolean, ipAddress: String, userAgent: String, reason: String) {

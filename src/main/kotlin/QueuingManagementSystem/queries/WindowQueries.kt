@@ -5,3 +5,5 @@ const val updateWindowQuery = "UPDATE windows SET area_id = ?, code = ?, name = 
 const val getWindowsByDepartmentQuery = "SELECT id, department_id, area_id, code, name, is_active FROM windows WHERE department_id = ? ORDER BY id"
 const val deleteWindowQueueTypesByWindowQuery = "DELETE FROM window_queue_types WHERE window_id = ?"
 const val postWindowQueueTypeQuery = "INSERT INTO window_queue_types(window_id, queue_type_id) VALUES(?, ?)"
+const val getWindowDepartmentByIdQuery = "SELECT department_id FROM windows WHERE id = ?"
+const val getQueueTypeDepartmentByIdQuery = "SELECT department_id FROM queue_types WHERE id = ?"

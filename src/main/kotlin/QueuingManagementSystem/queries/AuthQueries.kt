@@ -23,6 +23,13 @@ JOIN permissions p ON p.id = rp.permission_id
 WHERE ura.user_id = ?
 """
 
+const val getUserDepartmentScopesQuery = """
+SELECT department_id
+FROM user_department_scopes
+WHERE user_id = ?
+ORDER BY department_id
+"""
+
 const val revokeOtherActiveUserSessionsQuery = """
 UPDATE user_sessions
 SET status = 'REVOKED',

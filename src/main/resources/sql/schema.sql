@@ -20,6 +20,13 @@ CREATE TABLE IF NOT EXISTS users (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_department_scopes (
+    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    department_id INT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (user_id, department_id)
+);
+
 CREATE TABLE IF NOT EXISTS areas (
     id SERIAL PRIMARY KEY,
     department_id INT NOT NULL REFERENCES departments(id),
@@ -342,4 +349,16 @@ VALUES
     ('handler_complete', 'Handler can complete ticket'),
     ('ticket_cancel', 'Can cancel ticket'),
     ('supervisor_override', 'Can override workflow restrictions')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('user_manage_global', 'Manage users in all departments'),
+    ('user_manage_department', 'Manage users inside assigned department scope'),
+    ('department_manage', 'Manage departments'),
+    ('handler_manage', 'Manage handlers inside assigned scope'),
+    ('window_manage', 'Manage windows inside assigned scope'),
+    ('queue_type_manage', 'Manage queue types inside assigned scope'),
+    ('ticket_override', 'Override ticket workflow in allowed scope'),
+    ('report_view_scope', 'View reports in allowed scope')
 ON CONFLICT (code) DO NOTHING;

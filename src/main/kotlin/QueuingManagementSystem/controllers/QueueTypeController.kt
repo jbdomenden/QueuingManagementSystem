@@ -58,6 +58,16 @@ class QueueTypeController {
         return list
     }
 
+    fun getQueueTypeById(id: Int): QueueTypeModel? {
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getQueueTypeByIdQuery).use { s ->
+                s.setInt(1, id)
+                s.executeQuery().use { rs -> if (rs.next()) return mapQueueType(rs) }
+            }
+        }
+        return null
+    }
+
     private fun mapQueueType(rs: java.sql.ResultSet): QueueTypeModel {
         return QueueTypeModel(
             id = rs.getInt("id"),
