@@ -33,6 +33,31 @@ data class ArchiveDayRequest(
 )
 
 @Serializable
+data class TicketTransferRequest(
+    val handler_id: Int,
+    val ticket_id: Int,
+    val target_queue_type_id: Int? = null,
+    val target_department_id: Int? = null,
+    val target_company_transaction_id: Int? = null,
+    val target_window_id: Int? = null,
+    val reason: String
+)
+
+@Serializable
+data class TicketCancelRequest(
+    val handler_id: Int?,
+    val ticket_id: Int,
+    val reason: String
+)
+
+@Serializable
+data class TicketStatusChangeRequest(
+    val handler_id: Int,
+    val ticket_id: Int,
+    val reason: String? = null
+)
+
+@Serializable
 data class TicketModel(
     val id: Int,
     val ticket_number: String,
@@ -58,6 +83,34 @@ data class TicketModel(
     val waitingDisplay: String? = null,
     val servedSeconds: Long? = null,
     val servedDisplay: String? = null
+)
+
+@Serializable
+data class HandlerActiveContextResponse(
+    val handler_id: Int,
+    val user_id: Int,
+    val department_id: Int,
+    val window_id: Int,
+    val active_ticket: TicketModel?,
+    val result: GlobalCredentialResponse
+)
+
+@Serializable
+data class HandlerDashboardMetrics(
+    val waiting_count: Int,
+    val called_count: Int,
+    val serving_count: Int,
+    val hold_count: Int,
+    val no_show_count: Int,
+    val completed_count: Int,
+    val cancelled_count: Int
+)
+
+@Serializable
+data class TicketLifecycleResponse(
+    val ticket: TicketModel?,
+    val event: String,
+    val result: GlobalCredentialResponse
 )
 
 @Serializable
@@ -110,5 +163,31 @@ fun TicketCreateRequest.validateTicketCreateRequest(): MutableList<GlobalCredent
     if (company_transaction_id != null && company_transaction_id <= 0) errors.add(GlobalCredentialResponse(400, false, "company_transaction_id must be greater than 0"))
     if ((company_id == null) != (company_transaction_id == null)) errors.add(GlobalCredentialResponse(400, false, "company_id and company_transaction_id must both be provided together"))
     if (crew_identifier_type != null && crew_identifier_type !in listOf("KEYPAD", "RFID")) errors.add(GlobalCredentialResponse(400, false, "crew_identifier_type must be KEYPAD or RFID"))
+    return errors
+}
+
+fun TicketTransferRequest.validate(): List<GlobalCredentialResponse> {
+    val errors = mutableListOf<GlobalCredentialResponse>()
+    if (handler_id <= 0) errors.add(GlobalCredentialResponse(400, false, "handler_id is required"))
+    if (ticket_id <= 0) errors.add(GlobalCredentialResponse(400, false, "ticket_id is required"))
+    if (reason.isBlank()) errors.add(GlobalCredentialResponse(400, false, "reason is required"))
+    if (target_queue_type_id == null && target_department_id == null && target_company_transaction_id == null && target_window_id == null) {
+        errors.add(GlobalCredentialResponse(400, false, "at least one transfer target is required"))
+    }
+    return errors
+}
+
+fun TicketCancelRequest.validate(): List<GlobalCredentialResponse> {
+    val errors = mutableListOf<GlobalCredentialResponse>()
+    if (ticket_id <= 0) errors.add(GlobalCredentialResponse(400, false, "ticket_id is required"))
+    if (reason.isBlank()) errors.add(GlobalCredentialResponse(400, false, "reason is required"))
+    return errors
+}
+
+fun TicketStatusChangeRequest.validate(requireReason: Boolean = false): List<GlobalCredentialResponse> {
+    val errors = mutableListOf<GlobalCredentialResponse>()
+    if (handler_id <= 0) errors.add(GlobalCredentialResponse(400, false, "handler_id is required"))
+    if (ticket_id <= 0) errors.add(GlobalCredentialResponse(400, false, "ticket_id is required"))
+    if (requireReason && reason.isNullOrBlank()) errors.add(GlobalCredentialResponse(400, false, "reason is required"))
     return errors
 }

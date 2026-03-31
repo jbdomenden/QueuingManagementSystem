@@ -409,6 +409,365 @@ class TicketController {
         }
     }
 
+
+    data class LifecycleMutationResult(
+        val response: TicketLifecycleResponse,
+        val displayIds: List<Int> = emptyList(),
+        val departmentId: Int? = null
+    )
+
+    fun getHandlerActiveContext(handlerId: Int): HandlerActiveContextResponse {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getHandlerWindowContextQuery).use { statement ->
+                statement.setInt(1, handlerId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        val activeTicket = getCurrentActiveTicket(handlerId)
+                        return HandlerActiveContextResponse(
+                            handler_id = rs.getInt("handler_id"),
+                            user_id = rs.getInt("user_id"),
+                            department_id = rs.getInt("department_id"),
+                            window_id = rs.getInt("window_id"),
+                            active_ticket = activeTicket,
+                            result = GlobalCredentialResponse(200, true, "OK")
+                        )
+                    }
+                }
+            }
+        }
+        return HandlerActiveContextResponse(0, 0, 0, 0, null, GlobalCredentialResponse(404, false, "No active handler context"))
+    }
+
+    fun getHandlerDashboardMetrics(handlerId: Int): HandlerDashboardMetrics {
+        val ctx = getHandlerActiveContext(handlerId)
+        if (!ctx.result.Access) return HandlerDashboardMetrics(0, 0, 0, 0, 0, 0, 0)
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getHandlerDashboardMetricsQuery).use { statement ->
+                statement.setInt(1, ctx.department_id)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) {
+                        return HandlerDashboardMetrics(
+                            waiting_count = rs.getInt("waiting_count"),
+                            called_count = rs.getInt("called_count"),
+                            serving_count = rs.getInt("serving_count"),
+                            hold_count = rs.getInt("hold_count"),
+                            no_show_count = rs.getInt("no_show_count"),
+                            completed_count = rs.getInt("completed_count"),
+                            cancelled_count = rs.getInt("cancelled_count")
+                        )
+                    }
+                }
+            }
+        }
+        return HandlerDashboardMetrics(0, 0, 0, 0, 0, 0, 0)
+    }
+
+    fun getCurrentActiveTicket(handlerId: Int): TicketModel? {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getCurrentHandlerActiveTicketQuery).use { statement ->
+                statement.setInt(1, handlerId)
+                statement.executeQuery().use { rs -> if (rs.next()) return mapTicket(rs) }
+            }
+        }
+        return null
+    }
+
+    fun callNextTicket(actorUserId: Int, handlerId: Int): LifecycleMutationResult {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                val existing = fetchCurrentActiveTicketForUpdate(connection, handlerId)
+                if (existing != null) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(existing, "CALL_NEXT", GlobalCredentialResponse(409, false, "Handler already has an active ticket")))
+                }
+
+                val ticket = fetchOldestWaitingForUpdate(connection, handlerId)
+                    ?: run {
+                        connection.rollback()
+                        return LifecycleMutationResult(TicketLifecycleResponse(null, "CALL_NEXT", GlobalCredentialResponse(404, false, "No waiting ticket available")))
+                    }
+
+                applyStatusTransition(
+                    connection = connection,
+                    actorUserId = actorUserId,
+                    actorHandlerId = handlerId,
+                    ticket = ticket,
+                    toStatus = "CALLED",
+                    reason = "CALL_NEXT",
+                    event = "TICKET_CALLED",
+                    targetHandlerId = handlerId,
+                    targetWindowId = getActiveWindowId(connection, handlerId)
+                )
+
+                val updated = fetchTicketForUpdate(connection, ticket.id) ?: ticket
+                val displayIds = getDisplayIdsByHandler(handlerId)
+                connection.commit()
+                return LifecycleMutationResult(TicketLifecycleResponse(updated, "TICKET_CALLED", GlobalCredentialResponse(200, true, "Ticket called")), displayIds, updated.department_id)
+            } catch (e: Exception) {
+                connection.rollback()
+                return LifecycleMutationResult(TicketLifecycleResponse(null, "CALL_NEXT", GlobalCredentialResponse(500, false, e.message ?: "Internal server error")))
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    fun recallTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
+        return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("CALLED", "IN_SERVICE", "HOLD"), "CALLED", reason ?: "RECALL", "TICKET_RECALLED")
+    }
+
+    fun holdTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
+        return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("CALLED", "IN_SERVICE"), "HOLD", reason ?: "HOLD", "TICKET_HOLD")
+    }
+
+    fun noShowTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
+        return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("CALLED", "HOLD"), "SKIPPED", reason ?: "NO_SHOW", "TICKET_NO_SHOW")
+    }
+
+    fun completeTicket(actorUserId: Int, handlerId: Int, ticketId: Int, reason: String?): LifecycleMutationResult {
+        return transitionCurrentTicket(actorUserId, handlerId, ticketId, setOf("IN_SERVICE", "CALLED"), "COMPLETED", reason ?: "COMPLETED", "TICKET_COMPLETED")
+    }
+
+    fun cancelTicket(actorUserId: Int, handlerId: Int?, ticketId: Int, reason: String): LifecycleMutationResult {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                val ticket = fetchTicketForUpdate(connection, ticketId)
+                    ?: return LifecycleMutationResult(TicketLifecycleResponse(null, "TICKET_CANCELLED", GlobalCredentialResponse(404, false, "Ticket not found")))
+
+                if (ticket.status in setOf("COMPLETED", "CANCELLED", "TRANSFERRED")) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, "TICKET_CANCELLED", GlobalCredentialResponse(409, false, "Illegal transition from ${ticket.status} to CANCELLED")))
+                }
+
+                applyStatusTransition(connection, actorUserId, handlerId, ticket, "CANCELLED", reason, "TICKET_CANCELLED")
+                val updated = fetchTicketForUpdate(connection, ticketId) ?: ticket
+                val displayIds = if (updated.assigned_handler_id != null) getDisplayIdsByHandler(updated.assigned_handler_id) else emptyList()
+                connection.commit()
+                return LifecycleMutationResult(TicketLifecycleResponse(updated, "TICKET_CANCELLED", GlobalCredentialResponse(200, true, "Ticket cancelled")), displayIds, updated.department_id)
+            } catch (e: Exception) {
+                connection.rollback()
+                return LifecycleMutationResult(TicketLifecycleResponse(null, "TICKET_CANCELLED", GlobalCredentialResponse(500, false, e.message ?: "Internal server error")))
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    fun transferTicket(actorUserId: Int, request: TicketTransferRequest): LifecycleMutationResult {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                val ticket = fetchTicketForUpdate(connection, request.ticket_id)
+                    ?: return LifecycleMutationResult(TicketLifecycleResponse(null, "TICKET_TRANSFERRED", GlobalCredentialResponse(404, false, "Ticket not found")))
+
+                if (ticket.assigned_handler_id != request.handler_id) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, "TICKET_TRANSFERRED", GlobalCredentialResponse(403, false, "Ticket is not assigned to handler")))
+                }
+
+                if (ticket.status !in setOf("CALLED", "IN_SERVICE", "HOLD")) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, "TICKET_TRANSFERRED", GlobalCredentialResponse(409, false, "Illegal transition from ${ticket.status} to TRANSFERRED")))
+                }
+
+                val targetDepartmentId = request.target_department_id ?: ticket.department_id
+                val targetQueueTypeId = request.target_queue_type_id ?: ticket.queue_type_id
+                val targetWindowId = request.target_window_id
+                val targetCompanyTransactionId = request.target_company_transaction_id ?: ticket.company_transaction_id
+
+                connection.prepareStatement(updateTicketLifecycleByIdQuery).use { statement ->
+                    statement.setString(1, "TRANSFERRED")
+                    statement.setNull(2, java.sql.Types.INTEGER)
+                    statement.setNull(3, java.sql.Types.INTEGER)
+                    statement.setInt(4, targetQueueTypeId)
+                    statement.setInt(5, targetDepartmentId)
+                    if (targetCompanyTransactionId == null) statement.setNull(6, java.sql.Types.INTEGER) else statement.setInt(6, targetCompanyTransactionId)
+                    statement.setString(7, "TRANSFERRED")
+                    statement.setString(8, "TRANSFERRED")
+                    statement.setString(9, "TRANSFERRED")
+                    statement.setInt(10, ticket.id)
+                    statement.executeUpdate()
+                }
+
+                insertStatusHistory(connection, ticket, "TRANSFERRED", actorUserId, request.handler_id, request.reason, "{\"transfer\":true}")
+                insertTicketLog(connection, ticket.id, "TRANSFERRED", request.handler_id, request.reason)
+                insertAudit(connection, actorUserId, ticket.department_id, "TICKET_TRANSFERRED", "ticket", ticket.id.toString(), request.reason)
+                connection.prepareStatement(insertTicketTransferQuery).use { statement ->
+                    statement.setInt(1, ticket.id)
+                    statement.setInt(2, ticket.queue_type_id)
+                    statement.setInt(3, targetQueueTypeId)
+                    statement.setInt(4, ticket.department_id)
+                    statement.setInt(5, targetDepartmentId)
+                    if (ticket.assigned_window_id == null) statement.setNull(6, java.sql.Types.INTEGER) else statement.setInt(6, ticket.assigned_window_id)
+                    if (targetWindowId == null) statement.setNull(7, java.sql.Types.INTEGER) else statement.setInt(7, targetWindowId)
+                    if (ticket.company_transaction_id == null) statement.setNull(8, java.sql.Types.INTEGER) else statement.setInt(8, ticket.company_transaction_id)
+                    if (targetCompanyTransactionId == null) statement.setNull(9, java.sql.Types.INTEGER) else statement.setInt(9, targetCompanyTransactionId)
+                    statement.setInt(10, actorUserId)
+                    statement.setInt(11, request.handler_id)
+                    statement.setString(12, request.reason)
+                    statement.executeUpdate()
+                }
+
+                val updated = fetchTicketForUpdate(connection, ticket.id) ?: ticket
+                val displayIds = getDisplayIdsByHandler(request.handler_id)
+                connection.commit()
+                return LifecycleMutationResult(TicketLifecycleResponse(updated, "TICKET_TRANSFERRED", GlobalCredentialResponse(200, true, "Ticket transferred")), displayIds, ticket.department_id)
+            } catch (e: Exception) {
+                connection.rollback()
+                return LifecycleMutationResult(TicketLifecycleResponse(null, "TICKET_TRANSFERRED", GlobalCredentialResponse(500, false, e.message ?: "Internal server error")))
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    fun getUserTicketHistory(handlerId: Int, limit: Int, offset: Int): List<TicketModel> {
+        val list = mutableListOf<TicketModel>()
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getUserTicketHistoryQuery).use { statement ->
+                statement.setInt(1, handlerId)
+                statement.setInt(2, limit)
+                statement.setInt(3, offset)
+                statement.executeQuery().use { rs -> while (rs.next()) list.add(mapTicket(rs)) }
+            }
+        }
+        return list
+    }
+
+    private fun transitionCurrentTicket(actorUserId: Int, handlerId: Int, ticketId: Int, allowedFrom: Set<String>, toStatus: String, reason: String, event: String): LifecycleMutationResult {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                val ticket = fetchTicketForUpdate(connection, ticketId)
+                    ?: return LifecycleMutationResult(TicketLifecycleResponse(null, event, GlobalCredentialResponse(404, false, "Ticket not found")))
+
+                if (ticket.assigned_handler_id != handlerId) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, event, GlobalCredentialResponse(403, false, "Ticket is not assigned to handler")))
+                }
+
+                if (!allowedFrom.contains(ticket.status)) {
+                    connection.rollback()
+                    return LifecycleMutationResult(TicketLifecycleResponse(ticket, event, GlobalCredentialResponse(409, false, "Illegal transition from ${ticket.status} to $toStatus")))
+                }
+
+                applyStatusTransition(connection, actorUserId, handlerId, ticket, toStatus, reason, event)
+                val updated = fetchTicketForUpdate(connection, ticket.id) ?: ticket
+                val displayIds = getDisplayIdsByHandler(handlerId)
+                connection.commit()
+                return LifecycleMutationResult(TicketLifecycleResponse(updated, event, GlobalCredentialResponse(200, true, "Ticket updated")), displayIds, updated.department_id)
+            } catch (e: Exception) {
+                connection.rollback()
+                return LifecycleMutationResult(TicketLifecycleResponse(null, event, GlobalCredentialResponse(500, false, e.message ?: "Internal server error")))
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    private fun applyStatusTransition(connection: java.sql.Connection, actorUserId: Int, actorHandlerId: Int?, ticket: TicketModel, toStatus: String, reason: String, event: String, targetHandlerId: Int? = null, targetWindowId: Int? = null) {
+        connection.prepareStatement(updateTicketLifecycleByIdQuery).use { statement ->
+            statement.setString(1, toStatus)
+            if (targetHandlerId == null) statement.setNull(2, java.sql.Types.INTEGER) else statement.setInt(2, targetHandlerId)
+            if (targetWindowId == null) statement.setNull(3, java.sql.Types.INTEGER) else statement.setInt(3, targetWindowId)
+            statement.setNull(4, java.sql.Types.INTEGER)
+            statement.setNull(5, java.sql.Types.INTEGER)
+            statement.setNull(6, java.sql.Types.INTEGER)
+            statement.setString(7, toStatus)
+            statement.setString(8, toStatus)
+            statement.setString(9, toStatus)
+            statement.setInt(10, ticket.id)
+            statement.executeUpdate()
+        }
+
+        if (targetHandlerId != null || targetWindowId != null) {
+            connection.prepareStatement(insertTicketAssignmentHistoryQuery).use { statement ->
+                statement.setInt(1, ticket.id)
+                if (ticket.assigned_handler_id == null) statement.setNull(2, java.sql.Types.INTEGER) else statement.setInt(2, ticket.assigned_handler_id)
+                statement.setInt(3, targetHandlerId ?: ticket.assigned_handler_id ?: 0)
+                if (ticket.assigned_window_id == null) statement.setNull(4, java.sql.Types.INTEGER) else statement.setInt(4, ticket.assigned_window_id)
+                if (targetWindowId == null) statement.setNull(5, java.sql.Types.INTEGER) else statement.setInt(5, targetWindowId)
+                statement.setInt(6, actorUserId)
+                if (actorHandlerId == null) statement.setNull(7, java.sql.Types.INTEGER) else statement.setInt(7, actorHandlerId)
+                statement.setString(8, reason)
+                statement.executeUpdate()
+            }
+        }
+
+        insertStatusHistory(connection, ticket, toStatus, actorUserId, actorHandlerId, reason, "{\"event\":\"$event\"}")
+        insertTicketLog(connection, ticket.id, toStatus, actorHandlerId, reason)
+        insertAudit(connection, actorUserId, ticket.department_id, event, "ticket", ticket.id.toString(), reason)
+    }
+
+    private fun insertStatusHistory(connection: java.sql.Connection, ticket: TicketModel, toStatus: String, actorUserId: Int, actorHandlerId: Int?, reason: String, metadataJson: String) {
+        connection.prepareStatement(insertQueueStatusHistoryQuery).use { statement ->
+            statement.setInt(1, ticket.id)
+            statement.setString(2, ticket.status)
+            statement.setString(3, toStatus)
+            statement.setInt(4, actorUserId)
+            if (actorHandlerId == null) statement.setNull(5, java.sql.Types.INTEGER) else statement.setInt(5, actorHandlerId)
+            statement.setString(6, reason)
+            statement.setString(7, metadataJson)
+            statement.executeUpdate()
+        }
+    }
+
+    private fun insertTicketLog(connection: java.sql.Connection, ticketId: Int, action: String, actorHandlerId: Int?, reason: String) {
+        connection.prepareStatement(postTicketLogQuery).use { statement ->
+            statement.setInt(1, ticketId)
+            statement.setString(2, action)
+            if (actorHandlerId == null) statement.setNull(3, java.sql.Types.INTEGER) else statement.setInt(3, actorHandlerId)
+            statement.setString(4, "{\"reason\":\"${reason.replace("\"", "'")}\"}")
+            statement.executeUpdate()
+        }
+    }
+
+    private fun insertAudit(connection: java.sql.Connection, actorUserId: Int, departmentId: Int?, action: String, entityName: String, entityId: String, reason: String) {
+        connection.prepareStatement(postSessionLifecycleAuditQuery).use { statement ->
+            statement.setInt(1, actorUserId)
+            if (departmentId == null) statement.setNull(2, java.sql.Types.INTEGER) else statement.setInt(2, departmentId)
+            statement.setString(3, action)
+            statement.setString(4, entityName)
+            statement.setString(5, entityId)
+            statement.setString(6, "{\"reason\":\"${reason.replace("\"", "'")}\"}")
+            statement.executeUpdate()
+        }
+    }
+
+    private fun fetchTicketForUpdate(connection: java.sql.Connection, ticketId: Int): TicketModel? {
+        connection.prepareStatement(getTicketForUpdateQuery).use { statement ->
+            statement.setInt(1, ticketId)
+            statement.executeQuery().use { rs -> if (rs.next()) return mapTicket(rs) }
+        }
+        return null
+    }
+
+    private fun fetchCurrentActiveTicketForUpdate(connection: java.sql.Connection, handlerId: Int): TicketModel? {
+        connection.prepareStatement(getCurrentHandlerActiveTicketQuery).use { statement ->
+            statement.setInt(1, handlerId)
+            statement.executeQuery().use { rs -> if (rs.next()) return mapTicket(rs) }
+        }
+        return null
+    }
+
+    private fun fetchOldestWaitingForUpdate(connection: java.sql.Connection, handlerId: Int): TicketModel? {
+        connection.prepareStatement(getOldestWaitingTicketForHandlerQuery).use { statement ->
+            statement.setInt(1, handlerId)
+            statement.executeQuery().use { rs -> if (rs.next()) return mapTicket(rs) }
+        }
+        return null
+    }
+
+    private fun getActiveWindowId(connection: java.sql.Connection, handlerId: Int): Int? {
+        connection.prepareStatement(getActiveHandlerWindowQuery).use { statement ->
+            statement.setInt(1, handlerId)
+            statement.executeQuery().use { rs -> if (rs.next()) return rs.getInt("window_id") }
+        }
+        return null
+    }
+
     fun getDisplayIdsForQueueType(queueTypeId: Int): MutableList<Int> {
         val ids = mutableListOf<Int>()
         ConnectionPoolManager.getConnection().use { connection ->

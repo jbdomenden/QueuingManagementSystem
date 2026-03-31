@@ -18,6 +18,26 @@ fun Route.ticketRoutes() {
     val controller = TicketController()
     val eventPublisher = EventPublisher()
 
+    suspend fun RoutingContext.requirePermissionOrOverride(session: AuthController.ValidatedSession, permission: String): Boolean {
+        if (session.permissions.contains(permission) || session.permissions.contains("supervisor_override")) return true
+        call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Missing permission: $permission"))
+        return false
+    }
+
+    suspend fun RoutingContext.resolveHandlerSession(): Pair<AuthController.ValidatedSession, Int>? {
+        val session = authController.getValidatedSessionByToken(call.request.extractBearerToken())
+            ?: run {
+                call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
+                return null
+            }
+        val handler = handlerController.getActiveHandlerByUserId(session.userId)
+            ?: run {
+                call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler context required"))
+                return null
+            }
+        return Pair(session, handler.id)
+    }
+
     route("/tickets") {
         post("/create") {
             try {
@@ -28,8 +48,8 @@ fun Route.ticketRoutes() {
                 val response = controller.createTicketWithPrintable(request)
                 if (!response.result.Access) return@post call.respond(HttpStatusCode.BadRequest, response)
 
-                val displayIds = controller.getDisplayIdsForQueueType(request.queue_type_id)
-                eventPublisher.notifyHandlersTicketCreated(request.queue_type_id)
+                val displayIds = controller.getDisplayIdsForQueueType(request.queue_type_id ?: response.ticket.queue_type_id)
+                eventPublisher.notifyHandlersTicketCreated(response.ticket.queue_type_id)
                 eventPublisher.notifyDisplayTicketCreated(displayIds)
                 eventPublisher.notifyAdminDepartmentSummary(response.ticket.department_id)
                 call.respond(HttpStatusCode.OK, response)
@@ -38,17 +58,137 @@ fun Route.ticketRoutes() {
             }
         }
 
-        get("/{ticketId}/printable") {
-            try {
-                val ticketId = call.parameters["ticketId"]?.toIntOrNull() ?: 0
-                if (ticketId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "ticketId is required"))
-                val printable = controller.getPrintableTicketDetails(ticketId)
-                    ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Ticket not found"))
-                call.respond(HttpStatusCode.OK, printable)
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
+        get("/handler/context") {
+            val resolved = resolveHandlerSession() ?: return@get
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@get
+            val response = controller.getHandlerActiveContext(handlerId)
+            call.respond(if (response.result.Access) HttpStatusCode.OK else HttpStatusCode.NotFound, response)
         }
+
+        get("/handler/dashboard") {
+            val resolved = resolveHandlerSession() ?: return@get
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@get
+            call.respond(HttpStatusCode.OK, controller.getHandlerDashboardMetrics(handlerId))
+        }
+
+        get("/handler/active-ticket") {
+            val resolved = resolveHandlerSession() ?: return@get
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@get
+            val active = controller.getCurrentActiveTicket(handlerId)
+            call.respond(HttpStatusCode.OK, TicketLifecycleResponse(active, "ACTIVE_TICKET", GlobalCredentialResponse(200, true, "OK")))
+        }
+
+        get("/handler/history") {
+            val resolved = resolveHandlerSession() ?: return@get
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@get
+            val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 50).coerceIn(1, 200)
+            val offset = (call.request.queryParameters["offset"]?.toIntOrNull() ?: 0).coerceAtLeast(0)
+            call.respond(HttpStatusCode.OK, ListResponse(controller.getUserTicketHistory(handlerId, limit, offset), GlobalCredentialResponse(200, true, "OK")))
+        }
+
+        post("/handler/call-next") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@post
+            val result = controller.callNextTicket(session.userId, handlerId)
+            if (result.response.result.Access) {
+                eventPublisher.notifyDisplayTicketCalled(result.displayIds)
+                if (result.departmentId != null) eventPublisher.notifyAdminDepartmentSummary(result.departmentId)
+            }
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/recall") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_recall")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            val errors = request.validate()
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.recallTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) eventPublisher.notifyDisplayTicketRecalled(result.displayIds)
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/hold") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_hold")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            val errors = request.validate(requireReason = true)
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.holdTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) eventPublisher.notifyDisplayTicketSkipped(result.displayIds)
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/no-show") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_no_show")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            val errors = request.validate(requireReason = true)
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.noShowTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) eventPublisher.notifyDisplayTicketSkipped(result.displayIds)
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/transfer") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_transfer")) return@post
+            val request = call.receive<TicketTransferRequest>()
+            val errors = request.validate()
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.transferTicket(session.userId, request)
+            if (result.response.result.Access) eventPublisher.notifyDisplayTicketSkipped(result.displayIds)
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/complete") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_complete")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            val errors = request.validate()
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.completeTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) {
+                eventPublisher.notifyDisplayTicketCompleted(result.displayIds)
+                if (result.departmentId != null) eventPublisher.notifyAdminDepartmentSummary(result.departmentId)
+            }
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/cancel") {
+            val session = authController.getValidatedSessionByToken(call.request.extractBearerToken())
+                ?: return@post call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
+            if (!(session.permissions.contains("ticket_cancel") || session.permissions.contains("supervisor_override"))) {
+                return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+            }
+            val request = call.receive<TicketCancelRequest>()
+            val errors = request.validate()
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+
+            val handlerId = request.handler_id ?: handlerController.getActiveHandlerByUserId(session.userId)?.id
+            val result = controller.cancelTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) {
+                eventPublisher.notifyDisplayTicketSkipped(result.displayIds)
+                if (result.departmentId != null) eventPublisher.notifyAdminDepartmentSummary(result.departmentId)
+            }
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
 
         post("/archive/day") {
             try {
@@ -90,26 +230,6 @@ fun Route.ticketRoutes() {
             }
         }
 
-        get("/archived/{ticketId}") {
-            try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val ticketId = call.parameters["ticketId"]?.toIntOrNull() ?: 0
-                if (ticketId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "ticketId is required"))
-
-                val item = controller.getArchivedTicketById(ticketId)
-                    ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Archived ticket not found"))
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != item.department_id) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
-                }
-                call.respond(HttpStatusCode.OK, item)
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
-        }
-
         get("/live/{departmentId}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
@@ -129,104 +249,13 @@ fun Route.ticketRoutes() {
             }
         }
 
-        post("/call-next") {
+        get("/{ticketId}/printable") {
             try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.HANDLER.name, UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val request = call.receive<CallNextRequest>()
-                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
-                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
-                }
-                val ticket = controller.callNext(request.handler_id)
-                if (ticket.id > 0) {
-                    val displayIds = controller.getDisplayIdsByHandler(request.handler_id)
-                    eventPublisher.notifyDisplayTicketCalled(displayIds)
-                    eventPublisher.notifyAdminDepartmentSummary(ticket.department_id)
-                }
-                call.respond(HttpStatusCode.OK, ticket)
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
-        }
-
-        post("/start-service") {
-            try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.HANDLER.name, UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val request = call.receive<TicketActionRequest>()
-                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
-                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
-                }
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "IN_SERVICE", request.notes)
-                if (updated) eventPublisher.notifyDisplayTicketCalled(controller.getDisplayIdsByHandler(request.handler_id))
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket set to IN_SERVICE"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
-        }
-
-        post("/skip") {
-            try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.HANDLER.name, UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val request = call.receive<TicketActionRequest>()
-                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
-                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
-                }
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "SKIPPED", request.notes)
-                if (updated) eventPublisher.notifyDisplayTicketSkipped(controller.getDisplayIdsByHandler(request.handler_id))
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket skipped"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
-        }
-
-        post("/recall") {
-            try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.HANDLER.name, UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val request = call.receive<TicketActionRequest>()
-                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
-                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
-                }
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "CALLED", request.notes)
-                if (updated) eventPublisher.notifyDisplayTicketRecalled(controller.getDisplayIdsByHandler(request.handler_id))
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket recalled"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
-            }
-        }
-
-        post("/complete") {
-            try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.HANDLER.name, UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
-                val request = call.receive<TicketActionRequest>()
-                val handler = handlerController.getActiveHandlerByUserId(session.user_id)
-                if (session.role == UserRole.HANDLER.name && (handler == null || handler.id != request.handler_id)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
-                }
-                val updated = controller.updateTicketStatus(request.ticket_id, request.handler_id, "COMPLETED", request.notes)
-                if (updated) {
-                    val displayIds = controller.getDisplayIdsByHandler(request.handler_id)
-                    eventPublisher.notifyDisplayTicketCompleted(displayIds)
-                    if (session.department_id != null) eventPublisher.notifyAdminDepartmentSummary(session.department_id)
-                }
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Ticket completed"))
+                val ticketId = call.parameters["ticketId"]?.toIntOrNull() ?: 0
+                if (ticketId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "ticketId is required"))
+                val printable = controller.getPrintableTicketDetails(ticketId)
+                    ?: return@get call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Ticket not found"))
+                call.respond(HttpStatusCode.OK, printable)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }

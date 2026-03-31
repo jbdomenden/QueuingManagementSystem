@@ -238,3 +238,98 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_identifier VARCHAR(100) NULL;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_identifier_type VARCHAR(20) NULL;
 
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_name VARCHAR(255) NULL;
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    session_id UUID PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id),
+    token_ref_hash VARCHAR(128) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVOKED', 'EXPIRED', 'LOGGED_OUT')),
+    login_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    logout_at TIMESTAMP NULL,
+    ip_address VARCHAR(100) NULL,
+    user_agent TEXT NULL,
+    client_identifier VARCHAR(255) NULL,
+    revoked_reason VARCHAR(100) NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_status ON user_sessions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_last_seen ON user_sessions(last_seen_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_token_ref_hash ON user_sessions(token_ref_hash);
+
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS client_identifier VARCHAR(255) NULL;
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS token_ref_hash VARCHAR(128);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS revoked_reason VARCHAR(100) NULL;
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS login_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS logout_at TIMESTAMP NULL;
+ALTER TABLE user_sessions ALTER COLUMN status TYPE VARCHAR(20);
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('session_view_self', 'View own sessions'),
+    ('session_view_all', 'View all sessions in allowed scope'),
+    ('session_revoke_self_other', 'Revoke own other sessions'),
+    ('session_revoke_any', 'Revoke any session in allowed scope')
+ON CONFLICT (code) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS queue_status_history (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_status VARCHAR(50) NOT NULL,
+    to_status VARCHAR(50) NOT NULL,
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    metadata_json TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_transfers (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_queue_type_id INT NULL REFERENCES queue_types(id),
+    to_queue_type_id INT NULL REFERENCES queue_types(id),
+    from_department_id INT NULL REFERENCES departments(id),
+    to_department_id INT NULL REFERENCES departments(id),
+    from_window_id INT NULL REFERENCES windows(id),
+    to_window_id INT NULL REFERENCES windows(id),
+    from_company_transaction_id INT NULL REFERENCES company_transactions(id),
+    to_company_transaction_id INT NULL REFERENCES company_transactions(id),
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS ticket_assignment_history (
+    id BIGSERIAL PRIMARY KEY,
+    ticket_id INT NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    from_handler_id INT NULL REFERENCES handlers(id),
+    to_handler_id INT NULL REFERENCES handlers(id),
+    from_window_id INT NULL REFERENCES windows(id),
+    to_window_id INT NULL REFERENCES windows(id),
+    actor_user_id INT NULL REFERENCES users(id),
+    actor_handler_id INT NULL REFERENCES handlers(id),
+    reason TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_status_history_ticket ON queue_status_history(ticket_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ticket_transfers_ticket ON ticket_transfers(ticket_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ticket_assignment_history_ticket ON ticket_assignment_history(ticket_id, created_at DESC);
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('handler_call_next', 'Handler can call next ticket'),
+    ('handler_recall', 'Handler can recall active ticket'),
+    ('handler_hold', 'Handler can hold active ticket'),
+    ('handler_no_show', 'Handler can mark ticket as no show'),
+    ('handler_transfer', 'Handler can transfer ticket'),
+    ('handler_complete', 'Handler can complete ticket'),
+    ('ticket_cancel', 'Can cancel ticket'),
+    ('supervisor_override', 'Can override workflow restrictions')
+ON CONFLICT (code) DO NOTHING;
