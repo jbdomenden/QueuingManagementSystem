@@ -19,24 +19,37 @@ import QueuingManagementSystem.routes.ticketRoutes
 import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
 import QueuingManagementSystem.routes.workflowTemplateRoutes
+import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.http.content.staticResources
-import io.ktor.server.response.respond
+import io.ktor.server.response.respondText
 import io.ktor.server.routing.get
 import io.ktor.server.routing.routing
 
 fun Application.configureRouting() {
     routing {
         get("/") {
-            call.respond(
-                mapOf(
-                    "message" to "Available quick-access endpoints",
-                    "endpoints" to mapOf(
-                        "kiosk" to "/kiosk.html",
-                        "display" to "/display.html",
-                        "user" to "/admin.html"
-                    )
-                )
+            call.respondText(
+                contentType = ContentType.Text.Html,
+                text = """
+                    <!doctype html>
+                    <html lang="en">
+                    <head>
+                      <meta charset="UTF-8" />
+                      <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+                      <title>QMS Quick Links</title>
+                    </head>
+                    <body style="font-family: Arial, sans-serif; padding: 24px;">
+                      <h2>Available quick-access endpoints</h2>
+                      <ul>
+                        <li><a href="/kiosk.html">Kiosk</a></li>
+                        <li><a href="/display.html">Display</a></li>
+                        <li><a href="/admin.html">User/Admin</a></li>
+                        <li><a href="/index.html">Login</a></li>
+                      </ul>
+                    </body>
+                    </html>
+                """.trimIndent()
             )
         }
 
