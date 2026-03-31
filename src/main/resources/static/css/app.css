@@ -377,3 +377,12 @@ pre {
   opacity: 0;
   pointer-events: none;
 }
+
+
+.ticket-row {
+  cursor: pointer;
+}
+
+.ticket-row.ticket-selected {
+  background: #bfdbfe;
+}

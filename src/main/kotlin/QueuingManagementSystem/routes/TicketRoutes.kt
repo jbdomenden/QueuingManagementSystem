@@ -91,6 +91,27 @@ fun Route.ticketRoutes() {
             call.respond(HttpStatusCode.OK, ListResponse(controller.getUserTicketHistory(handlerId, limit, offset), GlobalCredentialResponse(200, true, "OK")))
         }
 
+        get("/handler/queue") {
+            val resolved = resolveHandlerSession() ?: return@get
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@get
+            call.respond(HttpStatusCode.OK, ListResponse(controller.getHandlerWaitingTickets(handlerId), GlobalCredentialResponse(200, true, "OK")))
+        }
+
+        post("/handler/call") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            if (request.ticket_id <= 0) return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "ticket_id is required"))
+            val result = controller.callTicket(session.userId, handlerId, request.ticket_id)
+            if (result.response.result.Access) {
+                eventPublisher.notifyDisplayTicketCalled(result.displayIds)
+                if (result.departmentId != null) eventPublisher.notifyAdminDepartmentSummary(result.departmentId)
+            }
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
         post("/handler/call-next") {
             val resolved = resolveHandlerSession() ?: return@post
             val (session, handlerId) = resolved
@@ -100,6 +121,19 @@ fun Route.ticketRoutes() {
                 eventPublisher.notifyDisplayTicketCalled(result.displayIds)
                 if (result.departmentId != null) eventPublisher.notifyAdminDepartmentSummary(result.departmentId)
             }
+            call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
+        }
+
+        post("/handler/start-service") {
+            val resolved = resolveHandlerSession() ?: return@post
+            val (session, handlerId) = resolved
+            if (!requirePermissionOrOverride(session, "handler_call_next")) return@post
+            val request = call.receive<TicketStatusChangeRequest>()
+            val errors = request.validate()
+            if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
+            if (request.handler_id != handlerId) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Handler scope violation"))
+            val result = controller.startServiceTicket(session.userId, handlerId, request.ticket_id, request.reason)
+            if (result.response.result.Access) eventPublisher.notifyDisplayTicketCalled(result.displayIds)
             call.respond(if (result.response.result.Access) HttpStatusCode.OK else HttpStatusCode.Conflict, result.response)
         }
 
