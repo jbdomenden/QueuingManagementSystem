@@ -28,7 +28,13 @@ fun Route.authRoutes() {
                 val errors = request.validateLoginRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
 
-                val response = authController.login(request.username, request.password, call.request.clientIpAddress(), call.request.clientUserAgent())
+                val response = authController.login(
+                    request.username,
+                    request.password,
+                    call.request.clientIpAddress(),
+                    call.request.clientUserAgent(),
+                    call.request.headers["X-Client-Id"]
+                )
                 if (!response.result.Access) return@post call.respond(HttpStatusCode.Unauthorized, response)
                 call.respond(HttpStatusCode.OK, response)
             } catch (e: Exception) {

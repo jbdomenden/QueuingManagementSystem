@@ -24,6 +24,7 @@ data class ValidateSessionResponse(
     val user_id: Int,
     val username: String,
     val full_name: String,
+    val role: String,
     val department_id: Int?,
     val permissions: List<String>,
     val result: GlobalCredentialResponse

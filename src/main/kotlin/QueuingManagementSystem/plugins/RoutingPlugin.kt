@@ -14,6 +14,7 @@ import QueuingManagementSystem.routes.kioskRoutes
 import QueuingManagementSystem.routes.queueTypeRoutes
 import QueuingManagementSystem.routes.realtimeRoutes
 import QueuingManagementSystem.routes.reportRoutes
+import QueuingManagementSystem.routes.sessionRoutes
 import QueuingManagementSystem.routes.ticketRoutes
 import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
@@ -32,6 +33,7 @@ fun Application.configureRouting() {
         staticResources("", "static")
 
         authRoutes()
+        sessionRoutes()
         departmentRoutes()
         companyRoutes()
         companyTransactionRoutes()

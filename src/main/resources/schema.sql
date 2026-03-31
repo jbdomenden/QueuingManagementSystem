@@ -238,3 +238,40 @@ ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_identifier VARCHAR(100) NULL;
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_identifier_type VARCHAR(20) NULL;
 
 ALTER TABLE tickets ADD COLUMN IF NOT EXISTS crew_name VARCHAR(255) NULL;
+
+CREATE TABLE IF NOT EXISTS user_sessions (
+    session_id UUID PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES users(id),
+    token_ref_hash VARCHAR(128) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE' CHECK (status IN ('ACTIVE', 'REVOKED', 'EXPIRED', 'LOGGED_OUT')),
+    login_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_seen_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    logout_at TIMESTAMP NULL,
+    ip_address VARCHAR(100) NULL,
+    user_agent TEXT NULL,
+    client_identifier VARCHAR(255) NULL,
+    revoked_reason VARCHAR(100) NULL,
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_sessions_user_status ON user_sessions(user_id, status);
+CREATE INDEX IF NOT EXISTS idx_user_sessions_last_seen ON user_sessions(last_seen_at);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_user_sessions_token_ref_hash ON user_sessions(token_ref_hash);
+
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS client_identifier VARCHAR(255) NULL;
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS token_ref_hash VARCHAR(128);
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS revoked_reason VARCHAR(100) NULL;
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE';
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS login_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMP NOT NULL DEFAULT NOW();
+ALTER TABLE user_sessions ADD COLUMN IF NOT EXISTS logout_at TIMESTAMP NULL;
+ALTER TABLE user_sessions ALTER COLUMN status TYPE VARCHAR(20);
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('session_view_self', 'View own sessions'),
+    ('session_view_all', 'View all sessions in allowed scope'),
+    ('session_revoke_self_other', 'Revoke own other sessions'),
+    ('session_revoke_any', 'Revoke any session in allowed scope')
+ON CONFLICT (code) DO NOTHING;

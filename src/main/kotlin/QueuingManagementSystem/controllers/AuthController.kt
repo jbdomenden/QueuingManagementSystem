@@ -6,31 +6,36 @@ import QueuingManagementSystem.queries.*
 import com.auth0.jwt.JWT
 import com.auth0.jwt.algorithms.Algorithm
 import org.mindrot.jbcrypt.BCrypt
+import java.security.MessageDigest
 import java.util.Date
+import java.util.UUID
 
 class AuthController(
-    private val jwtSecret: String,
-    private val jwtIssuer: String,
-    private val jwtAudience: String,
-    private val jwtExpirationMinutes: Long,
-    private val singleSessionEnforced: Boolean
+    private val jwtSecret: String = "change-me-secret",
+    private val jwtIssuer: String = "qms",
+    private val jwtAudience: String = "qms-clients",
+    private val jwtExpirationMinutes: Long = 480L,
+    private val singleSessionEnforced: Boolean = false
 ) {
 
     data class ValidatedSession(
+        val sessionId: String,
         val userId: Int,
         val username: String,
         val fullName: String,
+        val role: String,
         val departmentId: Int?,
         val permissions: List<String>
     )
 
-    fun login(username: String, password: String, ipAddress: String, userAgent: String): LoginResponse {
+    fun login(username: String, password: String, ipAddress: String, userAgent: String, clientId: String?): LoginResponse {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
                 var userId = 0
                 var passwordHash = ""
                 var fullName = ""
+                var role = ""
                 var departmentId: Int? = null
                 var active = false
 
@@ -41,6 +46,7 @@ class AuthController(
                             userId = rs.getInt("id")
                             passwordHash = rs.getString("password_hash")
                             fullName = rs.getString("full_name")
+                            role = rs.getString("role")
                             departmentId = rs.getInt("department_id").let { if (rs.wasNull()) null else it }
                             active = rs.getBoolean("is_active")
                         }
@@ -63,27 +69,36 @@ class AuthController(
 
                 val permissions = getPermissionsByUserId(connection, userId)
                 if (singleSessionEnforced) {
-                    connection.prepareStatement(deactivateUserSessionsQuery).use { s ->
+                    connection.prepareStatement(revokeOtherActiveUserSessionsQuery).use { s ->
                         s.setInt(1, userId)
+                        s.setString(2, "FORCED_LOGOUT")
                         s.executeUpdate()
                     }
+                    auditSessionLifecycle(connection, userId, departmentId, "FORCED_LOGOUT", "all_active_sessions", "single_session_enforced")
                 }
 
-                val token = issueJwt(userId, username, permissions)
+                val sessionId = UUID.randomUUID().toString()
+                val tokenRef = UUID.randomUUID().toString()
+                val tokenRefHash = sha256(tokenRef)
+                val token = issueJwt(userId, username, permissions, sessionId, tokenRef)
+
                 connection.prepareStatement(postUserSessionQuery).use { s ->
-                    s.setInt(1, userId)
-                    s.setString(2, token)
-                    s.setString(3, ipAddress)
-                    s.setString(4, userAgent)
+                    s.setString(1, sessionId)
+                    s.setInt(2, userId)
+                    s.setString(3, tokenRefHash)
+                    s.setString(4, ipAddress)
+                    s.setString(5, userAgent)
+                    s.setString(6, clientId)
                     s.executeQuery().use { rs -> rs.next() }
                 }
                 auditLogin(connection, userId, username, true, ipAddress, userAgent, "LOGIN_SUCCESS")
+                auditSessionLifecycle(connection, userId, departmentId, "LOGIN", sessionId, "login_success")
                 connection.commit()
 
                 return LoginResponse(
                     user_id = userId,
                     full_name = fullName,
-                    role = "",
+                    role = role,
                     department_id = departmentId,
                     token = token,
                     permissions = permissions,
@@ -100,10 +115,28 @@ class AuthController(
 
     fun logout(token: String): Boolean {
         if (token.isBlank()) return false
+        val decoded = verifyToken(token) ?: return false
+        val sessionId = decoded.getClaim("sid").asString() ?: return false
+        val tokenRef = decoded.id ?: return false
         ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(updateUserSessionLogoutByTokenQuery).use { statement ->
-                statement.setString(1, token)
-                return statement.executeUpdate() > 0
+            connection.autoCommit = false
+            try {
+                connection.prepareStatement(updateUserSessionLogoutBySessionIdQuery).use { statement ->
+                    statement.setString(1, sessionId)
+                    statement.setString(2, sha256(tokenRef))
+                    val updated = statement.executeUpdate() > 0
+                    if (updated) {
+                        val validated = getValidatedSessionByToken(token, connection, touchLastSeen = false)
+                        auditSessionLifecycle(connection, validated?.userId, validated?.departmentId, "LOGOUT", sessionId, "user_logout")
+                    }
+                    connection.commit()
+                    return updated
+                }
+            } catch (e: Exception) {
+                connection.rollback()
+                return false
+            } finally {
+                connection.autoCommit = true
             }
         }
     }
@@ -111,12 +144,13 @@ class AuthController(
     fun validateSession(token: String): ValidateSessionResponse {
         val validated = getValidatedSessionByToken(token)
         if (validated == null) {
-            return ValidateSessionResponse(0, "", "", null, emptyList(), GlobalCredentialResponse(401, false, "Unauthorized"))
+            return ValidateSessionResponse(0, "", "", "", null, emptyList(), GlobalCredentialResponse(401, false, "Unauthorized"))
         }
         return ValidateSessionResponse(
             user_id = validated.userId,
             username = validated.username,
             full_name = validated.fullName,
+            role = validated.role,
             department_id = validated.departmentId,
             permissions = validated.permissions,
             result = GlobalCredentialResponse(200, true, "OK")
@@ -148,10 +182,12 @@ class AuthController(
                 }
 
                 if (singleSessionEnforced) {
-                    connection.prepareStatement(deactivateUserSessionsQuery).use { s ->
+                    connection.prepareStatement(revokeOtherActiveUserSessionsQuery).use { s ->
                         s.setInt(1, validated.userId)
+                        s.setString(2, "FORCED_LOGOUT")
                         s.executeUpdate()
                     }
+                    auditSessionLifecycle(connection, validated.userId, validated.departmentId, "FORCED_LOGOUT", "all_active_sessions", "password_change_single_session")
                 }
 
                 auditLogin(connection, validated.userId, validated.username, true, ipAddress, userAgent, "CHANGE_PASSWORD_SUCCESS")
@@ -167,32 +203,9 @@ class AuthController(
     }
 
     fun getValidatedSessionByToken(token: String): ValidatedSession? {
-        if (token.isBlank()) return null
-        val decoded = try {
-            JWT.require(Algorithm.HMAC256(jwtSecret)).withIssuer(jwtIssuer).withAudience(jwtAudience).build().verify(token)
-        } catch (_: Exception) {
-            return null
-        }
-
         ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(getActiveSessionByTokenWithUserQuery).use { statement ->
-                statement.setString(1, token)
-                statement.executeQuery().use { rs ->
-                    if (rs.next()) {
-                        val userId = rs.getInt("user_id")
-                        val permissions = getPermissionsByUserId(connection, userId)
-                        return ValidatedSession(
-                            userId = userId,
-                            username = rs.getString("username"),
-                            fullName = rs.getString("full_name"),
-                            departmentId = rs.getInt("department_id").let { if (rs.wasNull()) null else it },
-                            permissions = permissions
-                        )
-                    }
-                }
-            }
+            return getValidatedSessionByToken(token, connection, touchLastSeen = true)
         }
-        return null
     }
 
     fun getUserSessionByToken(token: String): UserSessionModel {
@@ -200,24 +213,76 @@ class AuthController(
         return UserSessionModel(
             user_id = validated.userId,
             department_id = validated.departmentId,
-            role = "",
+            role = validated.role,
             token = token,
             permissions = validated.permissions
         )
     }
 
-    private fun issueJwt(userId: Int, username: String, permissions: List<String>): String {
+    private fun getValidatedSessionByToken(token: String, connection: java.sql.Connection, touchLastSeen: Boolean): ValidatedSession? {
+        if (token.isBlank()) return null
+        val decoded = verifyToken(token) ?: return null
+        val sessionId = decoded.getClaim("sid").asString() ?: return null
+        val tokenRef = decoded.id ?: return null
+
+        connection.prepareStatement(getActiveSessionByRefWithUserQuery).use { statement ->
+            statement.setString(1, sessionId)
+            statement.setString(2, sha256(tokenRef))
+            statement.executeQuery().use { rs ->
+                if (rs.next()) {
+                    if (touchLastSeen) {
+                        connection.prepareStatement(touchSessionLastSeenByIdQuery).use { update ->
+                            update.setString(1, sessionId)
+                            update.executeUpdate()
+                        }
+                    }
+                    val userId = rs.getInt("user_id")
+                    val permissions = getPermissionsByUserId(connection, userId)
+                    return ValidatedSession(
+                        sessionId = sessionId,
+                        userId = userId,
+                        username = rs.getString("username"),
+                        fullName = rs.getString("full_name"),
+                        role = rs.getString("role"),
+                        departmentId = rs.getInt("department_id").let { if (rs.wasNull()) null else it },
+                        permissions = permissions
+                    )
+                }
+            }
+        }
+
+        if (decoded.expiresAt != null && decoded.expiresAt.before(Date())) {
+            connection.prepareStatement(markSessionExpiredByIdQuery).use { statement ->
+                statement.setString(1, sessionId)
+                if (statement.executeUpdate() > 0) {
+                    auditSessionLifecycle(connection, null, null, "SESSION_EXPIRED", sessionId, "jwt_expired")
+                }
+            }
+        }
+
+        return null
+    }
+
+    private fun issueJwt(userId: Int, username: String, permissions: List<String>, sessionId: String, tokenRef: String): String {
         val now = Date()
         val expires = Date(now.time + jwtExpirationMinutes * 60_000)
         return JWT.create()
             .withIssuer(jwtIssuer)
             .withAudience(jwtAudience)
+            .withJWTId(tokenRef)
+            .withClaim("sid", sessionId)
             .withClaim("uid", userId)
             .withClaim("username", username)
             .withClaim("permissions", permissions)
             .withIssuedAt(now)
             .withExpiresAt(expires)
             .sign(Algorithm.HMAC256(jwtSecret))
+    }
+
+    private fun verifyToken(token: String) = try {
+        JWT.require(Algorithm.HMAC256(jwtSecret)).withIssuer(jwtIssuer).withAudience(jwtAudience).build().verify(token)
+    } catch (_: Exception) {
+        null
     }
 
     private fun getPermissionsByUserId(connection: java.sql.Connection, userId: Int): List<String> {
@@ -251,7 +316,24 @@ class AuthController(
         }
     }
 
+    private fun auditSessionLifecycle(connection: java.sql.Connection, userId: Int?, departmentId: Int?, action: String, entityId: String, reason: String) {
+        connection.prepareStatement(postSessionLifecycleAuditQuery).use { statement ->
+            if (userId == null) statement.setNull(1, java.sql.Types.INTEGER) else statement.setInt(1, userId)
+            if (departmentId == null) statement.setNull(2, java.sql.Types.INTEGER) else statement.setInt(2, departmentId)
+            statement.setString(3, action)
+            statement.setString(4, "user_session")
+            statement.setString(5, entityId)
+            statement.setString(6, "{\"reason\":\"$reason\"}")
+            statement.executeUpdate()
+        }
+    }
+
     private fun unauthorized(): LoginResponse {
         return LoginResponse(0, "", "", null, "", emptyList(), GlobalCredentialResponse(401, false, "Invalid credentials"))
+    }
+
+    private fun sha256(value: String): String {
+        val bytes = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return bytes.joinToString("") { "%02x".format(it) }
     }
 }
