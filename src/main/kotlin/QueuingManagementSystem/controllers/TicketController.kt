@@ -4,6 +4,9 @@ import QueuingManagementSystem.common.formatDurationToHms
 import QueuingManagementSystem.config.ConnectionPoolManager
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.queries.*
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.putJsonNull
+import kotlinx.serialization.json.put
 
 class TicketController {
     fun createTicket(request: TicketCreateRequest): TicketModel {
@@ -146,7 +149,18 @@ class TicketController {
                     statement.setInt(1, ticket.id)
                     statement.setString(2, "CREATED")
                     statement.setNull(3, java.sql.Types.INTEGER)
-                    statement.setString(4, "{\"kiosk_id\":${request.kiosk_id},\"company_id\":${resolvedCompanyId},\"company_transaction_id\":${resolvedCompanyTransactionId},\"destination_id\":${resolvedDestinationId},\"transaction_family\":\"${resolvedTransactionFamily ?: ""}\",\"workflow_template_id\":${resolvedWorkflowTemplateId},\"crew_identifier\":\"${request.crew_identifier ?: ""}\"}")
+                    statement.setString(
+                        4,
+                        buildJsonObject {
+                            put("kiosk_id", request.kiosk_id)
+                            if (resolvedCompanyId == null) putJsonNull("company_id") else put("company_id", resolvedCompanyId)
+                            if (resolvedCompanyTransactionId == null) putJsonNull("company_transaction_id") else put("company_transaction_id", resolvedCompanyTransactionId)
+                            if (resolvedDestinationId == null) putJsonNull("destination_id") else put("destination_id", resolvedDestinationId)
+                            if (resolvedTransactionFamily == null) putJsonNull("transaction_family") else put("transaction_family", resolvedTransactionFamily)
+                            if (resolvedWorkflowTemplateId == null) putJsonNull("workflow_template_id") else put("workflow_template_id", resolvedWorkflowTemplateId)
+                            if (request.crew_identifier == null) putJsonNull("crew_identifier") else put("crew_identifier", request.crew_identifier)
+                        }.toString()
+                    )
                     statement.executeUpdate()
                 }
 

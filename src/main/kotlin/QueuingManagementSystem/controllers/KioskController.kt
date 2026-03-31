@@ -7,23 +7,100 @@ import QueuingManagementSystem.models.KioskRequest
 import QueuingManagementSystem.queries.*
 
 class KioskController {
-    fun createKiosk(request: QueuingManagementSystem.models.KioskRequest): Int { QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { c -> c.prepareStatement(
-        QueuingManagementSystem.queries.postKioskQuery
-    ).use { s -> s.setInt(1, request.department_id); s.setString(2, request.name); s.setBoolean(3, request.is_active); s.executeQuery().use { r -> if (r.next()) return r.getInt("id") } } }; return 0 }
-    fun updateKiosk(request: QueuingManagementSystem.models.KioskRequest): Boolean { QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { c -> c.prepareStatement(
-        QueuingManagementSystem.queries.updateKioskQuery
-    ).use { s -> s.setString(1, request.name); s.setBoolean(2, request.is_active); s.setInt(3, request.id ?: 0); return s.executeUpdate() > 0 } } }
-    fun getKiosks(): MutableList<QueuingManagementSystem.models.KioskModel> { val list = mutableListOf<QueuingManagementSystem.models.KioskModel>(); QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { c -> c.prepareStatement(
-        QueuingManagementSystem.queries.getKiosksQuery
-    ).use { s -> s.executeQuery().use { rs -> while (rs.next()) list.add(
-        QueuingManagementSystem.models.KioskModel(
-            rs.getInt("id"),
-            rs.getInt("department_id"),
-            rs.getString("name"),
-            rs.getBoolean("is_active")
-        )
-    ) } } }; return list }
-    fun assignQueueTypes(request: QueuingManagementSystem.models.KioskQueueTypeAssignmentRequest): Boolean { QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { c -> c.autoCommit = false; try { c.prepareStatement(
-        QueuingManagementSystem.queries.deleteKioskQueueTypesByKioskQuery
-    ).use { s -> s.setInt(1, request.kiosk_id); s.executeUpdate() }; c.prepareStatement(QueuingManagementSystem.queries.postKioskQueueTypeQuery).use { s -> request.queue_type_ids.forEach { qid -> s.setInt(1, request.kiosk_id); s.setInt(2, qid); s.addBatch() }; s.executeBatch() }; c.commit(); return true } catch (e: Exception) { c.rollback(); return false } finally { c.autoCommit = true } } }
+    fun createKiosk(request: KioskRequest): Int {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(postKioskQuery).use { statement ->
+                statement.setInt(1, request.department_id)
+                statement.setString(2, request.name)
+                statement.setBoolean(3, request.is_active)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) return rs.getInt("id")
+                }
+            }
+        }
+        return 0
+    }
+
+    fun updateKiosk(request: KioskRequest): Boolean {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(updateKioskQuery).use { statement ->
+                statement.setString(1, request.name)
+                statement.setBoolean(2, request.is_active)
+                statement.setInt(3, request.id ?: 0)
+                return statement.executeUpdate() > 0
+            }
+        }
+    }
+
+    fun getKiosks(): MutableList<KioskModel> {
+        val list = mutableListOf<KioskModel>()
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getKiosksQuery).use { statement ->
+                statement.executeQuery().use { rs ->
+                    while (rs.next()) {
+                        list.add(
+                            KioskModel(
+                                id = rs.getInt("id"),
+                                department_id = rs.getInt("department_id"),
+                                name = rs.getString("name"),
+                                is_active = rs.getBoolean("is_active")
+                            )
+                        )
+                    }
+                }
+            }
+        }
+        return list
+    }
+
+    fun assignQueueTypes(request: KioskQueueTypeAssignmentRequest): Boolean {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.autoCommit = false
+            try {
+                connection.prepareStatement(deleteKioskQueueTypesByKioskQuery).use { statement ->
+                    statement.setInt(1, request.kiosk_id)
+                    statement.executeUpdate()
+                }
+                connection.prepareStatement(postKioskQueueTypeQuery).use { statement ->
+                    request.queue_type_ids.forEach { queueTypeId ->
+                        statement.setInt(1, request.kiosk_id)
+                        statement.setInt(2, queueTypeId)
+                        statement.addBatch()
+                    }
+                    statement.executeBatch()
+                }
+                connection.commit()
+                return true
+            } catch (_: Exception) {
+                connection.rollback()
+                return false
+            } finally {
+                connection.autoCommit = true
+            }
+        }
+    }
+
+    fun getKioskDepartmentById(kioskId: Int): Int? {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getKioskDepartmentByIdQuery).use { statement ->
+                statement.setInt(1, kioskId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) return rs.getInt("department_id")
+                }
+            }
+        }
+        return null
+    }
+
+    fun getQueueTypeDepartmentById(queueTypeId: Int): Int? {
+        ConnectionPoolManager.getConnection().use { connection ->
+            connection.prepareStatement(getQueueTypeDepartmentByIdQuery).use { statement ->
+                statement.setInt(1, queueTypeId)
+                statement.executeQuery().use { rs ->
+                    if (rs.next()) return rs.getInt("department_id")
+                }
+            }
+        }
+        return null
+    }
 }

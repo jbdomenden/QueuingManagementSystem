@@ -1,5 +1,6 @@
 package QueuingManagementSystem.models
 
+import QueuingManagementSystem.common.PasswordPolicy
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -51,6 +52,7 @@ fun LoginRequest.validateLoginRequest(): MutableList<GlobalCredentialResponse> {
 fun ChangePasswordRequest.validateChangePasswordRequest(): MutableList<GlobalCredentialResponse> {
     val errors = mutableListOf<GlobalCredentialResponse>()
     if (currentPassword.isBlank()) errors.add(GlobalCredentialResponse(400, false, "currentPassword is required"))
-    if (newPassword.length < 8) errors.add(GlobalCredentialResponse(400, false, "newPassword must be at least 8 characters"))
+    PasswordPolicy.validate(newPassword, "newPassword")
+        ?.let { errors.add(GlobalCredentialResponse(400, false, it)) }
     return errors
 }

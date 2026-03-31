@@ -1,5 +1,6 @@
 package QueuingManagementSystem.models
 
+import QueuingManagementSystem.common.PasswordPolicy
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -53,5 +54,9 @@ fun QueuingManagementSystem.models.UserRequest.validateUserRequest(isCreate: Boo
             "password is required"
         )
     )
+    if (!password.isNullOrBlank()) {
+        PasswordPolicy.validate(password, "password")
+            ?.let { errors.add(QueuingManagementSystem.models.GlobalCredentialResponse(400, false, it)) }
+    }
     return errors
 }
