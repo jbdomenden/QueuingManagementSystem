@@ -30,3 +30,4 @@ WHERE hs.is_active = true
 """
 
 const val getHandlerByUserIdQuery = "SELECT id, user_id, department_id, is_active FROM handlers WHERE user_id = ? AND is_active = true LIMIT 1"
+const val getHandlerByIdQuery = "SELECT id, user_id, department_id, is_active FROM handlers WHERE id = ? LIMIT 1"

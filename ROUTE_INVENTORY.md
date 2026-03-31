@@ -13,6 +13,23 @@
 - `POST /sessions/me/revoke-others` (permission: `session_revoke_self_other`)
 - `POST /sessions/{sessionId}/revoke` (permission: `session_revoke_any`; super admin or scoped admin)
 
+## Scoped Admin & Operational Routes
+- `POST /users/create` (permissions: `user_manage_global` or `user_manage_department`; enforces department scope)
+- `PUT /users/update` (permissions: `user_manage_global` or `user_manage_department`; enforces department scope)
+- `GET /users/list` (permissions: `user_manage_global` or `user_manage_department`; filters out out-of-scope users)
+- `GET /users/department/{departmentId}` (permissions: `user_manage_global` or `user_manage_department`; department scope check)
+- `GET /users/{id}` (permissions: `user_manage_global` or `user_manage_department`; scope check)
+- `POST /handlers/create` (permission: `handler_manage`; scope check)
+- `PUT /handlers/update` (permission: `handler_manage`; scope check)
+- `GET /handlers/list/{departmentId}` (permission: `handler_manage`; scope check)
+- `POST /windows/create` (permission: `window_manage`; scope check)
+- `PUT /windows/update` (permission: `window_manage`; server-side scope lookup)
+- `GET /windows/list/{departmentId}` (permission: `window_manage`; scope check)
+- `POST /windows/assign-queue-types` (permission: `window_manage`; validates window and queue type scope)
+- `POST /queue-types/create` (permission: `queue_type_manage`; scope check)
+- `PUT /queue-types/update` (permission: `queue_type_manage`; server-side scope lookup)
+- `GET /queue-types/list/{departmentId}` (permission: `queue_type_manage`; scope check)
+
 ## Ticket Lifecycle Routes
 - `POST /tickets/create`
 - `GET /tickets/{ticketId}/printable`

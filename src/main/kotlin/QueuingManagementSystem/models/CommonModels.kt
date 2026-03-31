@@ -25,6 +25,7 @@ data class ListResponse<T>(
 data class UserSessionModel(
     val user_id: Int = 0,
     val department_id: Int? = null,
+    val department_scopes: List<Int> = emptyList(),
     val role: String = "",
     val token: String = "",
     val permissions: List<String> = emptyList()

@@ -6,6 +6,8 @@ import QueuingManagementSystem.models.UserSessionModel
 enum class UserRole {
     SUPERADMIN,
     DEPARTMENT_ADMIN,
+    SUPERVISOR,
+    MODERATOR,
     HANDLER
 }
 

@@ -28,4 +28,24 @@ class WindowController {
     fun assignQueueTypes(request: QueuingManagementSystem.models.WindowQueueTypeAssignmentRequest): Boolean { QueuingManagementSystem.config.ConnectionPoolManager.getConnection().use { c -> c.autoCommit = false; try { c.prepareStatement(
         QueuingManagementSystem.queries.deleteWindowQueueTypesByWindowQuery
     ).use { s -> s.setInt(1, request.window_id); s.executeUpdate() }; c.prepareStatement(QueuingManagementSystem.queries.postWindowQueueTypeQuery).use { s -> request.queue_type_ids.forEach { id -> s.setInt(1, request.window_id); s.setInt(2, id); s.addBatch() }; s.executeBatch() }; c.commit(); return true } catch (e: Exception) { c.rollback(); return false } finally { c.autoCommit = true } } }
+
+    fun getWindowDepartmentId(windowId: Int): Int? {
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getWindowDepartmentByIdQuery).use { s ->
+                s.setInt(1, windowId)
+                s.executeQuery().use { rs -> if (rs.next()) return rs.getInt("department_id") }
+            }
+        }
+        return null
+    }
+
+    fun getQueueTypeDepartmentId(queueTypeId: Int): Int? {
+        ConnectionPoolManager.getConnection().use { c ->
+            c.prepareStatement(getQueueTypeDepartmentByIdQuery).use { s ->
+                s.setInt(1, queueTypeId)
+                s.executeQuery().use { rs -> if (rs.next()) return rs.getInt("department_id") }
+            }
+        }
+        return null
+    }
 }
