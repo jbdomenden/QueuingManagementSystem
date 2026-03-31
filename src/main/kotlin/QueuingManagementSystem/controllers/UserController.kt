@@ -7,7 +7,9 @@ import QueuingManagementSystem.queries.getUserByIdQuery
 import QueuingManagementSystem.queries.getUsersByDepartmentQuery
 import QueuingManagementSystem.queries.getUsersQuery
 import QueuingManagementSystem.queries.postUserQuery
+import QueuingManagementSystem.queries.postUserDepartmentScopeQuery
 import QueuingManagementSystem.queries.updateUserQuery
+import QueuingManagementSystem.queries.deleteUserDepartmentScopesQuery
 import java.util.UUID
 
 class UserController {

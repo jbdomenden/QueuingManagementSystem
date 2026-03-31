@@ -4,8 +4,8 @@ import QueuingManagementSystem.common.formatDurationToHms
 import QueuingManagementSystem.config.ConnectionPoolManager
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.queries.*
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.putJsonNull
 import kotlinx.serialization.json.put
 
 class TicketController {
@@ -153,12 +153,12 @@ class TicketController {
                         4,
                         buildJsonObject {
                             put("kiosk_id", request.kiosk_id)
-                            if (resolvedCompanyId == null) putJsonNull("company_id") else put("company_id", resolvedCompanyId)
-                            if (resolvedCompanyTransactionId == null) putJsonNull("company_transaction_id") else put("company_transaction_id", resolvedCompanyTransactionId)
-                            if (resolvedDestinationId == null) putJsonNull("destination_id") else put("destination_id", resolvedDestinationId)
-                            if (resolvedTransactionFamily == null) putJsonNull("transaction_family") else put("transaction_family", resolvedTransactionFamily)
-                            if (resolvedWorkflowTemplateId == null) putJsonNull("workflow_template_id") else put("workflow_template_id", resolvedWorkflowTemplateId)
-                            if (request.crew_identifier == null) putJsonNull("crew_identifier") else put("crew_identifier", request.crew_identifier)
+                            if (resolvedCompanyId == null) put("company_id", JsonNull) else put("company_id", resolvedCompanyId)
+                            if (resolvedCompanyTransactionId == null) put("company_transaction_id", JsonNull) else put("company_transaction_id", resolvedCompanyTransactionId)
+                            if (resolvedDestinationId == null) put("destination_id", JsonNull) else put("destination_id", resolvedDestinationId)
+                            if (resolvedTransactionFamily == null) put("transaction_family", JsonNull) else put("transaction_family", resolvedTransactionFamily)
+                            if (resolvedWorkflowTemplateId == null) put("workflow_template_id", JsonNull) else put("workflow_template_id", resolvedWorkflowTemplateId)
+                            if (request.crew_identifier == null) put("crew_identifier", JsonNull) else put("crew_identifier", request.crew_identifier)
                         }.toString()
                     )
                     statement.executeUpdate()

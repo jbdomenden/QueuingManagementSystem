@@ -8,7 +8,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.parseToJsonElement
 
 class EventPublisher {
     private val handlerController = HandlerController()
@@ -81,13 +80,13 @@ class EventPublisher {
             val subscriptions = DisplaySocketManager.getSubscriptions(displayId)
             if (subscriptions.isEmpty()) {
                 val snapshot = displayController.getDisplaySnapshot(displayId)
-                val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
+                val payload = Json.Default.parseToJsonElement(Json.encodeToString(snapshot))
                 DisplaySocketManager.publishDisplayUpdate(displayId, event, payload)
             } else {
                 subscriptions.forEach { subscription ->
                     val filters = parseFilters(subscription.filtersJson)
                     val snapshot = displayAggregationService.getDisplayAggregateSnapshot(displayId, filters)
-                    val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
+                    val payload = Json.Default.parseToJsonElement(Json.encodeToString(snapshot))
                     val message = Json.encodeToString(buildJsonObject {
                         put("event", event)
                         put("payload", payload)
