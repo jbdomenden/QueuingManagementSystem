@@ -12,8 +12,8 @@
 }
 
 .wallboard-layout {
-  height: 100vh;
   width: 100vw;
+  height: 100vh;
   padding: clamp(6px, 0.7vw, 12px);
   display: grid;
   grid-template-rows: minmax(0, 63%) minmax(0, 37%);
@@ -50,30 +50,34 @@
   background: #b9c6d7;
   color: #2437ac;
   border: 1px solid #d4dae5;
+  padding: clamp(4px, 0.35vw, 7px) clamp(10px, 0.9vw, 16px);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: clamp(4px, 0.35vw, 7px) clamp(10px, 0.9vw, 16px);
+  white-space: nowrap;
+  flex-wrap: nowrap;
 }
 
 .wb-title-band h1 {
   margin: 0;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex-wrap: nowrap;
-  align-items: baseline;
-  gap: 0.32em;
   white-space: nowrap;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  line-height: 1;
-  font-weight: 900;
-  font-size: clamp(1.75rem, 3.2vw, 4rem);
+  font-size: clamp(18px, 2.2vw, 32px);
+  font-weight: 800;
+  letter-spacing: 1px;
+  line-height: 1.2;
 }
 
 .wb-title-band h1 span {
-  font-size: 0.58em;
-  font-weight: 900;
-  line-height: 1;
+  margin-left: 6px;
+  font-size: clamp(14px, 1.2vw, 20px);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .wb-title-band-with-filter {
@@ -89,7 +93,7 @@
   border: none;
   border-radius: 4px;
   background: #eceef2;
-  font-size: clamp(0.85rem, 1vw, 1.1rem);
+  font-size: clamp(12px, 0.9vw, 14px);
   font-weight: 700;
 }
 
@@ -128,12 +132,12 @@
   table-layout: fixed;
 }
 
-.wb-table col:nth-child(1) { width: 33%; }
-.wb-table-2col col:nth-child(1) { width: 40%; }
-.wb-table-2col col:nth-child(2) { width: 60%; }
-.wb-table-3col col:nth-child(1) { width: 30%; }
-.wb-table-3col col:nth-child(2) { width: 33%; }
-.wb-table-3col col:nth-child(3) { width: 37%; }
+.wb-table th:nth-child(1) { width: 25%; }
+.wb-table th:nth-child(2) { width: 30%; }
+.wb-table th:nth-child(3) { width: 45%; }
+
+.wb-table-2col th:nth-child(1) { width: 35%; }
+.wb-table-2col th:nth-child(2) { width: 65%; }
 
 .wb-table th {
   border: 1px solid #3059de;
@@ -143,42 +147,20 @@
   text-transform: uppercase;
   white-space: nowrap;
   overflow: hidden;
-  padding: clamp(6px, 0.55vw, 10px) clamp(4px, 0.35vw, 8px);
-  font-size: clamp(1rem, 2.05vw, 2.2rem);
-  font-weight: 900;
-  line-height: 1;
+  padding: clamp(4px, 0.6vw, 8px);
+  font-size: clamp(12px, 1vw, 16px);
+  font-weight: 700;
+  line-height: 1.25;
 }
 
 .wb-table td {
   text-align: center;
   color: #101828;
-  font-size: clamp(1.15rem, 1.95vw, 2.55rem);
-  font-weight: 800;
-  line-height: 1.1;
-  padding: clamp(4px, 0.35vw, 8px);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.wallboard-lower .wb-title-band h1 {
-  font-size: clamp(1.45rem, 2.5vw, 3.35rem);
-}
-
-@media (max-width: 1366px) {
-  .wallboard-layout {
-    grid-template-rows: minmax(0, 60%) minmax(0, 40%);
-  }
-
-  .wb-title-band h1 {
-    font-size: clamp(1.45rem, 2.85vw, 3.4rem);
-  }
-
-  .wallboard-lower .wb-title-band h1 {
-    font-size: clamp(1.25rem, 2.25vw, 2.8rem);
-  }
-
-  .wb-table th {
-    font-size: clamp(0.9rem, 1.55vw, 1.7rem);
-  }
+  padding: clamp(4px, 0.6vw, 8px);
+  font-size: clamp(11px, 0.9vw, 14px);
+  font-weight: 700;
+  line-height: 1.3;
 }
