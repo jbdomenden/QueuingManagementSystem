@@ -1,63 +1,102 @@
 (function () {
-  window.App.renderNav('display.html');
+  const params = new URLSearchParams(window.location.search);
+  const displayId = Number(params.get('displayId') || '1');
 
-  const displayIdInput = document.getElementById('displayId');
-  const wsLog = document.getElementById('wsLog');
-  let socket = null;
-  let pollHandle = null;
+  const filterEl = document.getElementById('wallboardFilter');
+  const calledBody = document.getElementById('calledBody');
+  const onQueueLeftBody = document.getElementById('onQueueLeftBody');
+  const onQueueRightBody = document.getElementById('onQueueRightBody');
+  const noShowBody = document.getElementById('noShowBody');
+  const onHoldBody = document.getElementById('onHoldBody');
+  const visitorSupplierBody = document.getElementById('visitorSupplierBody');
 
-  function rowsHtml(rows) {
-    return (rows || []).map(t => `
+  let selectedFilter = 'all';
+  let refreshHandle = null;
+
+  function rowHtmlTwoCols(rows) {
+    return (rows || []).map((row) => `
       <tr>
-        <td>${t.ticket_number}</td>
-        <td>${t.queue_type_name || t.queue_type_id}</td>
-        <td>${window.Utils.statusBadge(t.status)}</td>
-        <td>${t.assigned_window_name || t.assigned_window_id || ''}</td>
-        <td>${window.Utils.formatDateTime(t.created_at)}</td>
-        <td>${t.waitingDisplay || window.Utils.formatDuration(t.waitingSeconds)}</td>
-        <td>${t.servedDisplay || window.Utils.formatDuration(t.servedSeconds)}</td>
+        <td>${row.ticketNumber || ''}</td>
+        <td>${row.transactionName || ''}</td>
       </tr>
     `).join('');
   }
 
-  function renderSnapshot(snapshot) {
-    document.getElementById('queuedBody').innerHTML = rowsHtml(snapshot.queued);
-    document.getElementById('servingBody').innerHTML = rowsHtml(snapshot.now_serving);
-    document.getElementById('skippedBody').innerHTML = rowsHtml(snapshot.skipped);
-    document.getElementById('displayMeta').textContent = window.Utils.toPrettyJson(snapshot.display || {});
+  function rowHtmlThreeCols(rows) {
+    return (rows || []).map((row) => `
+      <tr>
+        <td>${row.ticketNumber || ''}</td>
+        <td>${row.terminalNumber || '-'}</td>
+        <td>${row.transactionName || ''}</td>
+      </tr>
+    `).join('');
   }
 
-  async function fetchSnapshot() {
-    const id = Number(displayIdInput.value || 0);
-    if (!id) return;
-    const result = await window.Api.apiRequest(`/displays/snapshot/${id}`);
-    window.App.setDebug('debugPanel', result);
-    if (result.ok && result.data) {
-      renderSnapshot(result.data);
+  function splitOnQueue(items) {
+    const list = items || [];
+    const leftSize = Math.ceil(list.length / 2);
+    return {
+      left: list.slice(0, leftSize),
+      right: list.slice(leftSize)
+    };
+  }
+
+  function setCounts(counts) {
+    document.getElementById('onQueueCount').textContent = `[${counts.onQueue || 0}]`;
+    document.getElementById('noShowCount').textContent = `[${counts.noShow || 0}]`;
+    document.getElementById('onHoldCount').textContent = `[${counts.onHold || 0}]`;
+    document.getElementById('visitorSupplierCount').textContent = `[${counts.visitorSupplier || 0}]`;
+  }
+
+  function renderFilter(options, selected) {
+    const nextOptions = options && options.length ? options : [{ id: 'all', label: 'Select' }];
+    const currentValue = selected || selectedFilter || 'all';
+    const previous = filterEl.value;
+
+    filterEl.innerHTML = nextOptions
+      .map((opt) => `<option value="${opt.id}">${opt.label}</option>`)
+      .join('');
+
+    filterEl.value = nextOptions.some((opt) => opt.id === currentValue)
+      ? currentValue
+      : (nextOptions.some((opt) => opt.id === previous) ? previous : nextOptions[0].id);
+
+    selectedFilter = filterEl.value;
+  }
+
+  function renderPayload(payload) {
+    renderFilter(payload.filterOptions, payload.selectedFilter);
+    setCounts(payload.counts || {});
+
+    calledBody.innerHTML = rowHtmlThreeCols(payload.called || []);
+
+    const split = splitOnQueue(payload.onQueue || []);
+    onQueueLeftBody.innerHTML = rowHtmlTwoCols(split.left);
+    onQueueRightBody.innerHTML = rowHtmlTwoCols(split.right);
+
+    noShowBody.innerHTML = rowHtmlThreeCols(payload.noShow || []);
+    onHoldBody.innerHTML = rowHtmlTwoCols(payload.onHold || []);
+    visitorSupplierBody.innerHTML = rowHtmlTwoCols(payload.visitorSupplier || []);
+  }
+
+  async function fetchWallboard() {
+    if (!displayId) return;
+    const query = selectedFilter ? `?filter=${encodeURIComponent(selectedFilter)}` : '';
+    const result = await window.Api.apiRequest(`/displays/wallboard/${displayId}${query}`);
+    if (result.ok && result.data && result.data.result && result.data.result.Access) {
+      renderPayload(result.data);
     }
   }
 
-  function connectWs() {
-    const id = Number(displayIdInput.value || 0);
-    if (!id) return;
-    if (socket) socket.close();
+  filterEl.addEventListener('change', () => {
+    selectedFilter = filterEl.value || 'all';
+    fetchWallboard();
+  });
 
-    socket = window.WS.connectWebSocket(`/realtime/ws/display/${id}`, {
-      onOpen: () => { wsLog.textContent += 'connected\n'; },
-      onMessage: (msg) => {
-        wsLog.textContent += `${new Date().toISOString()} ${window.Utils.toPrettyJson(msg)}\n`;
-        if (msg && msg.payload && msg.payload.queued && msg.payload.now_serving) {
-          renderSnapshot(msg.payload);
-        }
-      },
-      onClose: () => { wsLog.textContent += 'closed\n'; }
-    });
-  }
+  fetchWallboard();
+  refreshHandle = setInterval(fetchWallboard, 5000);
 
-  document.getElementById('connectBtn').onclick = () => {
-    connectWs();
-    fetchSnapshot();
-    if (pollHandle) clearInterval(pollHandle);
-    pollHandle = setInterval(fetchSnapshot, 5000);
-  };
+  window.addEventListener('beforeunload', () => {
+    if (refreshHandle) clearInterval(refreshHandle);
+  });
 })();

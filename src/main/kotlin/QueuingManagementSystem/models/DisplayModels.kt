@@ -120,3 +120,38 @@ fun DisplayBoardRequest.validateDisplayBoardRequest(): MutableList<GlobalCredent
     if (name.isBlank()) errors.add(GlobalCredentialResponse(400, false, "name is required"))
     return errors
 }
+
+
+@Serializable
+data class WallboardFilterOption(
+    val id: String,
+    val label: String
+)
+
+@Serializable
+data class WallboardQueueRow(
+    val ticketNumber: String,
+    val terminalNumber: String? = null,
+    val transactionName: String
+)
+
+@Serializable
+data class WallboardCounts(
+    val onQueue: Int,
+    val noShow: Int,
+    val onHold: Int,
+    val visitorSupplier: Int
+)
+
+@Serializable
+data class DisplayWallboardResponse(
+    val filterOptions: List<WallboardFilterOption>,
+    val selectedFilter: String,
+    val counts: WallboardCounts,
+    val called: List<WallboardQueueRow>,
+    val onQueue: List<WallboardQueueRow>,
+    val noShow: List<WallboardQueueRow>,
+    val onHold: List<WallboardQueueRow>,
+    val visitorSupplier: List<WallboardQueueRow>,
+    val result: GlobalCredentialResponse
+)
