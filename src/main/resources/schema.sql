@@ -446,6 +446,38 @@ CREATE INDEX IF NOT EXISTS idx_queue_status_history_ticket ON queue_status_histo
 CREATE INDEX IF NOT EXISTS idx_ticket_transfers_ticket ON ticket_transfers(ticket_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ticket_assignment_history_ticket ON ticket_assignment_history(ticket_id, created_at DESC);
 
+CREATE TABLE IF NOT EXISTS daily_queue_archive (
+    id BIGSERIAL PRIMARY KEY,
+    archive_date DATE NOT NULL,
+    department_id INT NOT NULL REFERENCES departments(id),
+    queue_type_id INT NOT NULL REFERENCES queue_types(id),
+    company_id INT NULL REFERENCES companies(id),
+    handler_id INT NULL REFERENCES handlers(id),
+    waiting_count INT NOT NULL DEFAULT 0,
+    called_count INT NOT NULL DEFAULT 0,
+    in_service_count INT NOT NULL DEFAULT 0,
+    hold_count INT NOT NULL DEFAULT 0,
+    no_show_count INT NOT NULL DEFAULT 0,
+    completed_count INT NOT NULL DEFAULT 0,
+    cancelled_count INT NOT NULL DEFAULT 0,
+    transferred_count INT NOT NULL DEFAULT 0,
+    override_count INT NOT NULL DEFAULT 0,
+    avg_waiting_seconds BIGINT NOT NULL DEFAULT 0,
+    avg_serving_seconds BIGINT NOT NULL DEFAULT 0,
+    source_ticket_count INT NOT NULL DEFAULT 0,
+    archived_ticket_count INT NOT NULL DEFAULT 0,
+    process_reference VARCHAR(100) NULL,
+    archive_metadata_json TEXT NULL,
+    created_by INT NULL REFERENCES users(id),
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE (archive_date, department_id, queue_type_id, company_id, handler_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_daily_queue_archive_date_scope ON daily_queue_archive(archive_date, department_id, queue_type_id);
+CREATE INDEX IF NOT EXISTS idx_daily_queue_archive_department ON daily_queue_archive(department_id, archive_date DESC);
+CREATE INDEX IF NOT EXISTS idx_daily_queue_archive_queue_type ON daily_queue_archive(queue_type_id, archive_date DESC);
+
 INSERT INTO permissions(code, description)
 VALUES
     ('handler_call_next', 'Handler can call next ticket'),
@@ -468,4 +500,12 @@ VALUES
     ('queue_type_manage', 'Manage queue types inside assigned scope'),
     ('ticket_override', 'Override ticket workflow in allowed scope'),
     ('report_view_scope', 'View reports in allowed scope')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('audit_view', 'View immutable audit trail logs'),
+    ('report_view_department', 'View departmental reporting and archive metrics'),
+    ('report_view_global', 'View global reporting and archive metrics'),
+    ('archive_manage', 'Run end-of-day queue archival process')
 ON CONFLICT (code) DO NOTHING;

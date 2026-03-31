@@ -44,6 +44,9 @@
 - `POST /tickets/handler/transfer` (permission: `handler_transfer`)
 - `POST /tickets/handler/complete` (permission: `handler_complete`)
 - `POST /tickets/cancel` (permission: `ticket_cancel` or `supervisor_override`)
+- `POST /tickets/archive/day` (permission: `archive_manage`; scoped by actor department scope unless global report scope is present)
+- `GET /tickets/archived`
+- `GET /tickets/live/{departmentId}`
 
 ## Display Routes
 - `POST /displays/create` (permission: `display_manage`; role scoped to admin/superadmin)
@@ -65,3 +68,12 @@
 - `POST /workflow-templates/toggle` (permission: `workflow_template_manage`)
 - `GET /workflow-templates/list?include_inactive=` (permission: `workflow_template_view`)
 - `GET /workflow-templates/active?department_id=&queue_type_id=&company_id=&company_transaction_id=&transaction_family=` (permission: `workflow_template_view`)
+
+## Audit & Report Routes
+- `GET /audit/logs` (permission: `audit_view`; optional `departmentId` scope filter)
+- `GET /reports/department-summary/{departmentId}` (permission: `report_view_department` or `report_view_global`)
+- `GET /reports/handler-performance/{departmentId}` (permission: `report_view_department` or `report_view_global`)
+- `GET /reports/queue-volume/{departmentId}` (permission: `report_view_department` or `report_view_global`)
+- `GET /reports/archived-queues?dateFrom=&dateTo=&departmentId=` (permission: `report_view_department` or `report_view_global`)
+- `GET /reports/department-archived-summary?dateFrom=&dateTo=&departmentId=` (permission: `report_view_department` or `report_view_global`)
+- `GET /reports/daily-archive-metrics?dateFrom=&dateTo=&departmentId=` (permission: `report_view_department` or `report_view_global`)

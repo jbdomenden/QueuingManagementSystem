@@ -1,7 +1,7 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.controllers.TicketController
@@ -192,14 +192,18 @@ fun Route.ticketRoutes() {
 
         post("/archive/day") {
             try {
-                val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
+                val session = authController.getValidatedSessionByToken(call.request.extractBearerToken())
+                    ?: return@post call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
+                if (!session.permissions.contains("archive_manage")) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
                 val request = call.receive<ArchiveDayRequest>()
-                val departmentId = if (session.role == UserRole.DEPARTMENT_ADMIN.name) session.department_id else request.departmentId
-                val archivedCount = controller.archiveQueuesByServiceDate(request.serviceDate, session.user_id, departmentId)
+                val departmentId = request.departmentId ?: session.departmentId
+                if (request.departmentId != null && !session.permissions.contains("report_view_global") && !session.departmentScopes.contains(request.departmentId)) {
+                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
+                }
+                val archivedCount = controller.archiveQueuesByServiceDate(request.serviceDate, session.userId, departmentId)
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, true, "Archived tickets count: $archivedCount"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))

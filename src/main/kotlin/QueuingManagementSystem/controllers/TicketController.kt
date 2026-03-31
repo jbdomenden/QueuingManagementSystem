@@ -249,6 +249,22 @@ class TicketController {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
+                val processReference = "EOD_${serviceDateParam}_${System.currentTimeMillis()}"
+                val metadata = "{\"service_date\":\"$serviceDateParam\",\"department_id\":${departmentIdParam ?: "null"}}"
+                connection.prepareStatement(upsertDailyQueueArchiveByServiceDateQuery).use { statement ->
+                    statement.setString(1, processReference)
+                    statement.setString(2, metadata)
+                    statement.setInt(3, actorUserIdParam)
+                    statement.setString(4, serviceDateParam)
+                    if (departmentIdParam == null) {
+                        statement.setNull(5, java.sql.Types.INTEGER)
+                        statement.setNull(6, java.sql.Types.INTEGER)
+                    } else {
+                        statement.setInt(5, departmentIdParam)
+                        statement.setInt(6, departmentIdParam)
+                    }
+                    statement.executeUpdate()
+                }
                 var affected = 0
                 connection.prepareStatement(markTicketsArchivedByServiceDateQuery).use { statement ->
                     statement.setString(1, serviceDateParam)
@@ -261,6 +277,7 @@ class TicketController {
                     }
                     affected = statement.executeUpdate()
                 }
+                insertAudit(connection, actorUserIdParam, departmentIdParam, "QUEUE_DAILY_ARCHIVE", "daily_queue_archive", serviceDateParam, "archived_count=$affected")
                 connection.commit()
                 return affected
             } catch (e: Exception) {

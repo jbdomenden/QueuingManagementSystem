@@ -5,6 +5,7 @@ import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.common.isSuperAdmin
 import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.UserController
 import QueuingManagementSystem.models.*
 import io.ktor.http.HttpStatusCode
@@ -14,6 +15,7 @@ import io.ktor.server.routing.*
 
 fun Route.userRoutes() {
     val authController = AuthController()
+    val auditController = AuditController()
     val userController = UserController()
 
     route("/users") {
@@ -38,7 +40,11 @@ fun Route.userRoutes() {
                     }
                 }
 
-                call.respond(HttpStatusCode.OK, IdResponse(userController.createUser(request), GlobalCredentialResponse(200, true, "User created")))
+                val createdId = userController.createUser(request)
+                if (createdId > 0) {
+                    auditController.createAuditLog(session.userId, request.department_id, "ADMIN_SCOPE_USER_CREATE", "users", createdId.toString(), "{\"department_id\":${request.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, IdResponse(createdId, GlobalCredentialResponse(200, true, "User created")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }
@@ -65,7 +71,11 @@ fun Route.userRoutes() {
                     }
                 }
 
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, userController.updateUser(request), "User updated"))
+                val updated = userController.updateUser(request)
+                if (updated && request.id != null) {
+                    auditController.createAuditLog(session.userId, request.department_id, "ADMIN_SCOPE_USER_UPDATE", "users", request.id.toString(), "{\"department_id\":${request.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "User updated"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }

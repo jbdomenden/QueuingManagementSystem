@@ -3,6 +3,7 @@ package QueuingManagementSystem.routes
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.extractBearerToken
 import QueuingManagementSystem.controllers.AuthController
+import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.models.*
 import QueuingManagementSystem.models.validateHandlerRequest
@@ -13,6 +14,7 @@ import io.ktor.server.routing.*
 
 fun Route.handlerRoutes() {
     val authController = AuthController()
+    val auditController = AuditController()
     val controller = HandlerController()
 
     route("/handlers") {
@@ -29,7 +31,11 @@ fun Route.handlerRoutes() {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 
-                call.respond(HttpStatusCode.OK, IdResponse(controller.createHandler(request), GlobalCredentialResponse(200, true, "Handler created")))
+                val createdId = controller.createHandler(request)
+                if (createdId > 0) {
+                    auditController.createAuditLog(session.userId, request.department_id, "ADMIN_SCOPE_HANDLER_CREATE", "handlers", createdId.toString(), "{\"department_id\":${request.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, IdResponse(createdId, GlobalCredentialResponse(200, true, "Handler created")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }
@@ -46,7 +52,11 @@ fun Route.handlerRoutes() {
                     ?: return@put call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Handler not found"))
                 if (!session.canAccessDepartment(existing.department_id)) return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
 
-                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, controller.updateHandler(request), "Handler updated"))
+                val updated = controller.updateHandler(request)
+                if (updated && request.id != null) {
+                    auditController.createAuditLog(session.userId, existing.department_id, "ADMIN_SCOPE_HANDLER_UPDATE", "handlers", request.id.toString(), "{\"department_id\":${existing.department_id}}")
+                }
+                call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, updated, "Handler updated"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
             }
