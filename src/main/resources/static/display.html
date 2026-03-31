@@ -15,16 +15,19 @@
           <h1>CALLED</h1>
         </header>
         <div class="wb-panel">
-          <table class="wb-table wb-table-called">
-            <thead>
-              <tr>
-                <th>TICKET NO.</th>
-                <th>TERMINAL NO.</th>
-                <th>TRANSACTION</th>
-              </tr>
-            </thead>
-            <tbody id="calledBody"></tbody>
-          </table>
+          <div class="wb-table-wrap">
+            <table class="wb-table wb-table-3col">
+              <colgroup><col><col><col></colgroup>
+              <thead>
+                <tr>
+                  <th>TICKET NO.</th>
+                  <th>TERMINAL NO.</th>
+                  <th>TRANSACTION</th>
+                </tr>
+              </thead>
+              <tbody id="calledBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -35,20 +38,26 @@
         </header>
         <div class="wb-onqueue-panels">
           <div class="wb-panel">
-            <table class="wb-table">
-              <thead>
-                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
-              </thead>
-              <tbody id="onQueueLeftBody"></tbody>
-            </table>
+            <div class="wb-table-wrap">
+              <table class="wb-table wb-table-2col">
+                <colgroup><col><col></colgroup>
+                <thead>
+                  <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+                </thead>
+                <tbody id="onQueueLeftBody"></tbody>
+              </table>
+            </div>
           </div>
           <div class="wb-panel">
-            <table class="wb-table">
-              <thead>
-                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
-              </thead>
-              <tbody id="onQueueRightBody"></tbody>
-            </table>
+            <div class="wb-table-wrap">
+              <table class="wb-table wb-table-2col">
+                <colgroup><col><col></colgroup>
+                <thead>
+                  <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+                </thead>
+                <tbody id="onQueueRightBody"></tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -60,12 +69,15 @@
           <h1>NO SHOW <span id="noShowCount">[0]</span></h1>
         </header>
         <div class="wb-panel">
-          <table class="wb-table wb-table-called">
-            <thead>
-              <tr><th>TICKET NO.</th><th>TERMINAL NO.</th><th>TRANSACTION</th></tr>
-            </thead>
-            <tbody id="noShowBody"></tbody>
-          </table>
+          <div class="wb-table-wrap">
+            <table class="wb-table wb-table-3col">
+              <colgroup><col><col><col></colgroup>
+              <thead>
+                <tr><th>TICKET NO.</th><th>TERMINAL NO.</th><th>TRANSACTION</th></tr>
+              </thead>
+              <tbody id="noShowBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -74,12 +86,15 @@
           <h1>ON-HOLD <span id="onHoldCount">[0]</span></h1>
         </header>
         <div class="wb-panel">
-          <table class="wb-table">
-            <thead>
-              <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
-            </thead>
-            <tbody id="onHoldBody"></tbody>
-          </table>
+          <div class="wb-table-wrap">
+            <table class="wb-table wb-table-2col">
+              <colgroup><col><col></colgroup>
+              <thead>
+                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+              </thead>
+              <tbody id="onHoldBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
 
@@ -88,12 +103,15 @@
           <h1>VISITOR/SUPPLIER <span id="visitorSupplierCount">[0]</span></h1>
         </header>
         <div class="wb-panel">
-          <table class="wb-table">
-            <thead>
-              <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
-            </thead>
-            <tbody id="visitorSupplierBody"></tbody>
-          </table>
+          <div class="wb-table-wrap">
+            <table class="wb-table wb-table-2col">
+              <colgroup><col><col></colgroup>
+              <thead>
+                <tr><th>TICKET NO.</th><th>TRANSACTION</th></tr>
+              </thead>
+              <tbody id="visitorSupplierBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
     </section>
