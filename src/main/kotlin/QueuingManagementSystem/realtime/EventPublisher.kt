@@ -2,6 +2,8 @@ package QueuingManagementSystem.realtime
 
 import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.controllers.HandlerController
+import QueuingManagementSystem.models.DisplayFilterParams
+import QueuingManagementSystem.services.DisplayAggregationService
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonObject
@@ -11,6 +13,7 @@ import kotlinx.serialization.json.parseToJsonElement
 class EventPublisher {
     private val handlerController = HandlerController()
     private val displayController = DisplayController()
+    private val displayAggregationService = DisplayAggregationService()
 
     suspend fun notifyHandlersTicketCreated(queueTypeId: Int) {
         val payload = buildJsonObject {
@@ -75,9 +78,29 @@ class EventPublisher {
 
     private suspend fun publishDisplaySnapshots(displayIds: List<Int>, event: String) {
         displayIds.distinct().forEach { displayId ->
-            val snapshot = displayController.getDisplaySnapshot(displayId)
-            val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
-            DisplaySocketManager.publishDisplayUpdate(displayId, event, payload)
+            val subscriptions = DisplaySocketManager.getSubscriptions(displayId)
+            if (subscriptions.isEmpty()) {
+                val snapshot = displayController.getDisplaySnapshot(displayId)
+                val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
+                DisplaySocketManager.publishDisplayUpdate(displayId, event, payload)
+            } else {
+                subscriptions.forEach { subscription ->
+                    val filters = parseFilters(subscription.filtersJson)
+                    val snapshot = displayAggregationService.getDisplayAggregateSnapshot(displayId, filters)
+                    val payload = Json.parseToJsonElement(Json.encodeToString(snapshot))
+                    val message = Json.encodeToString(buildJsonObject {
+                        put("event", event)
+                        put("payload", payload)
+                    })
+                    subscription.session.send(io.ktor.websocket.Frame.Text(message))
+                }
+            }
         }
+    }
+
+    private fun parseFilters(filtersJson: String): DisplayFilterParams {
+        return runCatching {
+            Json.decodeFromString<DisplayFilterParams>(filtersJson)
+        }.getOrElse { DisplayFilterParams() }
     }
 }

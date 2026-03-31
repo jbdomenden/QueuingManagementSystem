@@ -83,3 +83,119 @@ WHERE t.status = 'SKIPPED'
 ORDER BY t.updated_at DESC
 LIMIT 20
 """
+
+const val getDisplayCurrentCalledTicketsQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id, w.name
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+      AND (? IS NULL OR w.department_id = ?)
+      AND (? IS NULL OR w.area_id = ?)
+), ranked AS (
+    SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.status,
+           w.id AS window_id, w.name AS window_name,
+           ROW_NUMBER() OVER (PARTITION BY w.id ORDER BY t.called_at DESC NULLS LAST, t.updated_at DESC) AS rn
+    FROM tickets t
+    JOIN scoped_windows w ON w.id = t.assigned_window_id
+    JOIN queue_types qt ON qt.id = t.queue_type_id
+    WHERE t.status = 'CALLED'
+      AND t.archived = false
+      AND (? IS NULL OR t.company_id = ?)
+)
+SELECT id, ticket_number, queue_type_id, queue_type_name, status, window_id, window_name
+FROM ranked
+WHERE rn = 1
+ORDER BY window_id
+"""
+
+const val getDisplayCurrentServingTicketsQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id, w.name
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+      AND (? IS NULL OR w.department_id = ?)
+      AND (? IS NULL OR w.area_id = ?)
+), ranked AS (
+    SELECT t.id, t.ticket_number, t.queue_type_id, qt.name AS queue_type_name, t.status,
+           w.id AS window_id, w.name AS window_name,
+           ROW_NUMBER() OVER (PARTITION BY w.id ORDER BY t.service_started_at DESC NULLS LAST, t.updated_at DESC) AS rn
+    FROM tickets t
+    JOIN scoped_windows w ON w.id = t.assigned_window_id
+    JOIN queue_types qt ON qt.id = t.queue_type_id
+    WHERE t.status = 'IN_SERVICE'
+      AND t.archived = false
+      AND (? IS NULL OR t.company_id = ?)
+)
+SELECT id, ticket_number, queue_type_id, queue_type_name, status, window_id, window_name
+FROM ranked
+WHERE rn = 1
+ORDER BY window_id
+"""
+
+const val getDisplayWaitingCountsByQueueTypeQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+      AND (? IS NULL OR w.department_id = ?)
+      AND (? IS NULL OR w.area_id = ?)
+), scoped_queue_types AS (
+    SELECT DISTINCT wqt.queue_type_id
+    FROM window_queue_types wqt
+    JOIN scoped_windows sw ON sw.id = wqt.window_id
+)
+SELECT qt.id AS queue_type_id, qt.name AS queue_type_name, COUNT(t.id)::int AS waiting_count
+FROM scoped_queue_types sqt
+JOIN queue_types qt ON qt.id = sqt.queue_type_id
+LEFT JOIN tickets t ON t.queue_type_id = sqt.queue_type_id
+  AND t.status = 'WAITING'
+  AND t.archived = false
+  AND (? IS NULL OR t.company_id = ?)
+GROUP BY qt.id, qt.name
+ORDER BY qt.name
+"""
+
+const val getDisplayCountsByStatusQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+      AND (? IS NULL OR w.department_id = ?)
+      AND (? IS NULL OR w.area_id = ?)
+), scoped_queue_types AS (
+    SELECT DISTINCT wqt.queue_type_id
+    FROM window_queue_types wqt
+    JOIN scoped_windows sw ON sw.id = wqt.window_id
+)
+SELECT t.status, COUNT(t.id)::int AS count
+FROM tickets t
+JOIN scoped_queue_types sqt ON sqt.queue_type_id = t.queue_type_id
+WHERE t.archived = false
+  AND (? IS NULL OR t.company_id = ?)
+GROUP BY t.status
+ORDER BY t.status
+"""
+
+const val getDisplayVisitorCountQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+      AND (? IS NULL OR w.department_id = ?)
+      AND (? IS NULL OR w.area_id = ?)
+), scoped_queue_types AS (
+    SELECT DISTINCT wqt.queue_type_id
+    FROM window_queue_types wqt
+    JOIN scoped_windows sw ON sw.id = wqt.window_id
+)
+SELECT COUNT(t.id)::int AS visitor_count
+FROM tickets t
+JOIN scoped_queue_types sqt ON sqt.queue_type_id = t.queue_type_id
+WHERE t.archived = false
+  AND t.company_id IS NULL
+"""

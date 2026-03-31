@@ -211,6 +211,8 @@ CREATE INDEX IF NOT EXISTS idx_tickets_queue_type_id ON tickets(queue_type_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned_window_id ON tickets(assigned_window_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON tickets(created_at);
 CREATE INDEX IF NOT EXISTS idx_tickets_department_status_created_at ON tickets(department_id, status, created_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_window_status_updated ON tickets(assigned_window_id, status, updated_at DESC) WHERE archived = false;
+CREATE INDEX IF NOT EXISTS idx_tickets_queue_status_company ON tickets(queue_type_id, status, company_id) WHERE archived = false;
 
 CREATE INDEX IF NOT EXISTS idx_handler_sessions_window_id ON handler_sessions(window_id);
 CREATE INDEX IF NOT EXISTS idx_handler_sessions_status ON handler_sessions(status);
@@ -274,6 +276,14 @@ VALUES
     ('session_view_all', 'View all sessions in allowed scope'),
     ('session_revoke_self_other', 'Revoke own other sessions'),
     ('session_revoke_any', 'Revoke any session in allowed scope')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO permissions(code, description)
+VALUES
+    ('display_view', 'View display snapshots and aggregates'),
+    ('display_manage', 'Create/update/assign display boards'),
+    ('display_scope_department', 'Display access scoped to own department'),
+    ('display_scope_global', 'Display access across all departments')
 ON CONFLICT (code) DO NOTHING;
 
 CREATE TABLE IF NOT EXISTS queue_status_history (
