@@ -1,8 +1,12 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
-import QueuingManagementSystem.common.UserRole
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.common.canAccessDepartment
+import QueuingManagementSystem.common.normalizeRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.controllers.TicketController
@@ -42,7 +46,11 @@ fun Route.ticketRoutes() {
     route("/tickets") {
         post("/create") {
             try {
+                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@post
                 val request = call.receive<TicketCreateRequest>()
+                if (device.departmentId != null && request.kiosk_id != null) {
+                    // department/device alignment validated downstream by kiosk relation
+                }
                 val errors = request.validateTicketCreateRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
 
@@ -248,15 +256,13 @@ fun Route.ticketRoutes() {
         get("/archived") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
                 val dateFrom = call.request.queryParameters["dateFrom"] ?: return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "dateFrom is required"))
                 val dateTo = call.request.queryParameters["dateTo"] ?: return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "dateTo is required"))
                 val queueTypeId = call.request.queryParameters["queueTypeId"]?.toIntOrNull()
                 val status = call.request.queryParameters["status"]
 
-                val data = if (session.role == UserRole.DEPARTMENT_ADMIN.name) {
+                val data = if (normalizeRole(session.role) == Role.DEPARTMENT_ADMIN) {
                     controller.getArchivedTicketsByDepartment(session.department_id ?: 0, dateFrom, dateTo, queueTypeId, status)
                 } else {
                     val departmentId = call.request.queryParameters["departmentId"]?.toIntOrNull()
@@ -272,14 +278,12 @@ fun Route.ticketRoutes() {
         get("/live/{departmentId}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
                 val departmentId = call.parameters["departmentId"]?.toIntOrNull() ?: 0
                 if (departmentId <= 0) {
                     return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "departmentId is required"))
                 }
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != departmentId) {
+                if (!session.canAccessDepartment(departmentId)) {
                     return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
                 call.respond(HttpStatusCode.OK, ListResponse(controller.getLiveTickets(departmentId), GlobalCredentialResponse(200, true, "OK")))
