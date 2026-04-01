@@ -1,6 +1,8 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.Role
 import QueuingManagementSystem.common.requireAnyRole
@@ -102,6 +104,7 @@ fun Route.displayRoutes() {
 
         get("/wallboard/{displayId}") {
             try {
+                requireDeviceContext(DeviceType.DISPLAY) ?: return@get
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
                 if (displayId <= 0) {
                     return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
@@ -120,6 +123,7 @@ fun Route.displayRoutes() {
 
         get("/snapshot/{displayId}") {
             try {
+                requireDeviceContext(DeviceType.DISPLAY) ?: return@get
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
                 if (displayId <= 0) {
                     return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
@@ -137,6 +141,7 @@ fun Route.displayRoutes() {
 
         get("/aggregate/{displayId}") {
             try {
+                requireDeviceContext(DeviceType.DISPLAY) ?: return@get
                 val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
                 if (displayId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "displayId is required"))
                 val display = controller.getDisplayBoardById(displayId)

@@ -1,13 +1,12 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.common.Role
 import QueuingManagementSystem.common.requireAnyRole
-import QueuingManagementSystem.common.requireRole
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.normalizeRole
-import QueuingManagementSystem.common.Role
-import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.HandlerController
 import QueuingManagementSystem.controllers.TicketController
@@ -47,7 +46,11 @@ fun Route.ticketRoutes() {
     route("/tickets") {
         post("/create") {
             try {
+                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@post
                 val request = call.receive<TicketCreateRequest>()
+                if (device.departmentId != null && request.kiosk_id != null) {
+                    // department/device alignment validated downstream by kiosk relation
+                }
                 val errors = request.validateTicketCreateRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
 

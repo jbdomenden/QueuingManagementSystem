@@ -1,9 +1,10 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.common.Role
 import QueuingManagementSystem.common.requireAnyRole
-import QueuingManagementSystem.common.requireRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.CompanyTransactionDestinationController
 import QueuingManagementSystem.models.*
@@ -19,6 +20,7 @@ fun Route.companyTransactionDestinationRoutes() {
     route("/company-transaction-destinations") {
         get("/kiosk/company-transaction/{companyTransactionId}") {
             try {
+                requireDeviceContext(DeviceType.KIOSK) ?: return@get
                 val companyTransactionId = call.parameters["companyTransactionId"]?.toIntOrNull() ?: 0
                 if (companyTransactionId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyTransactionId is required"))
                 call.respond(HttpStatusCode.OK, CompanyTransactionDestinationKioskListResponse(controller.getActiveCompanyTransactionDestinationsForKiosk(companyTransactionId), GlobalCredentialResponse(200, true, "OK")))

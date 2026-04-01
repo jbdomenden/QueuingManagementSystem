@@ -146,8 +146,11 @@
     if (!displayId) return;
     if (ws) ws.close();
 
+    const deviceKey = new URLSearchParams(window.location.search).get('device_key') || window.localStorage.getItem('device_key') || '';
+    const wsPath = deviceKey ? `/realtime/ws/display/${displayId}?device_key=${encodeURIComponent(deviceKey)}` : `/realtime/ws/display/${displayId}`;
+
     ws = window.WS && window.WS.connectWebSocket
-      ? window.WS.connectWebSocket(`/realtime/ws/display/${displayId}`, {
+      ? window.WS.connectWebSocket(wsPath, {
           onOpen: () => {},
           onMessage: () => { fetchWallboard(); },
           onClose: () => {}

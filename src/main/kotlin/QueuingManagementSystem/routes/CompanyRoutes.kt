@@ -1,6 +1,8 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.common.Role
 import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.common.requireRole
@@ -31,6 +33,11 @@ fun Route.companyRoutes() {
     route("/companies") {
         get("/kiosk") {
             try {
+                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@get
+                if (device.companyId != null) {
+                    val scoped = controller.getActiveCompaniesForKiosk().filter { it.id == device.companyId }
+                    return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", scoped), GlobalCredentialResponse(200, true, "OK")))
+                }
                 call.respond(
                     HttpStatusCode.OK,
                     SingleResponse(
