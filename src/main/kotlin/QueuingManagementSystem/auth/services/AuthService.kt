@@ -7,26 +7,39 @@ import QueuingManagementSystem.auth.models.StaffCurrentUserResult
 import QueuingManagementSystem.auth.models.StaffLoginResult
 import QueuingManagementSystem.auth.repositories.UserRepository
 import QueuingManagementSystem.models.GlobalCredentialResponse
+import org.slf4j.LoggerFactory
 
 class AuthService(
     private val userRepository: UserRepository = UserRepository(),
     private val jwtService: JwtService
 ) {
+    private val logger = LoggerFactory.getLogger(AuthService::class.java)
+
     fun login(email: String, password: String): StaffLoginResult {
-        val user = userRepository.findByEmail(email)
-            ?: return unauthorized("Invalid credentials")
+        return try {
+            val user = userRepository.findByEmail(email)
+                ?: return unauthorized("Invalid credentials")
 
-        if (!user.isActive) return unauthorized("User is inactive")
-        if (!PasswordCrypto.verifyPassword(password, user.passwordHash)) return unauthorized("Invalid credentials")
+            if (!user.isActive) return unauthorized("User is inactive")
+            if (!PasswordCrypto.verifyPassword(password, user.passwordHash)) return unauthorized("Invalid credentials")
 
-        userRepository.updateLastLogin(user.id)
-        val principal = user.toPrincipal()
-        return StaffLoginResult(
-            accessToken = jwtService.generateToken(principal),
-            forcePasswordChange = user.forcePasswordChange,
-            principal = principal,
-            result = GlobalCredentialResponse(200, true, "Login successful")
-        )
+            userRepository.updateLastLogin(user.id)
+            val principal = user.toPrincipal()
+            StaffLoginResult(
+                accessToken = jwtService.generateToken(principal),
+                forcePasswordChange = user.forcePasswordChange,
+                principal = principal,
+                result = GlobalCredentialResponse(200, true, "Login successful")
+            )
+        } catch (e: Exception) {
+            logger.error("Local login failed for {}: {}", email, e.message, e)
+            StaffLoginResult(
+                accessToken = "",
+                forcePasswordChange = false,
+                principal = AuthPrincipal(0, "", "", "", null, null, emptyList(), "LOCAL"),
+                result = GlobalCredentialResponse(500, false, "Local auth store is not ready")
+            )
+        }
     }
 
     fun changePassword(token: String, currentPassword: String, newPassword: String): GlobalCredentialResponse {
