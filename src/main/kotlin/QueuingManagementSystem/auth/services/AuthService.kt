@@ -64,14 +64,8 @@ class AuthService(
             Triple("handler@qms.local", "HANDLER", "Handler")
         )
 
-        defaults.forEachIndexed { index, item ->
-            val defaultPassword = when (index) {
-                0 -> "SuperAdmin@123"
-                1 -> "DeptAdmin@123"
-                2 -> "Supervisor@123"
-                3 -> "Moderator@123"
-                else -> "Handler@123"
-            }
+        defaults.forEach { item ->
+            val defaultPassword = "admin123"
             userRepository.create(
                 CreateQueueUserRequest(
                     email = item.first,
