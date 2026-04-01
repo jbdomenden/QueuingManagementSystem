@@ -199,3 +199,51 @@ JOIN scoped_queue_types sqt ON sqt.queue_type_id = t.queue_type_id
 WHERE t.archived = false
   AND t.company_id IS NULL
 """
+
+
+const val getDisplayWallboardRowsQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+), scoped_queue_types AS (
+    SELECT DISTINCT wqt.queue_type_id
+    FROM window_queue_types wqt
+    JOIN scoped_windows sw ON sw.id = wqt.window_id
+)
+SELECT t.ticket_number,
+       COALESCE(w.name, '') AS terminal_name,
+       qt.name AS transaction_name,
+       t.status,
+       t.company_id,
+       t.created_at,
+       t.called_at,
+       t.updated_at
+FROM tickets t
+JOIN queue_types qt ON qt.id = t.queue_type_id
+LEFT JOIN windows w ON w.id = t.assigned_window_id
+JOIN scoped_queue_types sqt ON sqt.queue_type_id = t.queue_type_id
+WHERE t.archived = false
+  AND (? IS NULL OR t.company_id = ?)
+ORDER BY t.created_at ASC
+"""
+
+const val getDisplayWallboardFilterOptionsQuery = """
+WITH scoped_windows AS (
+    SELECT DISTINCT w.id
+    FROM display_board_windows dbw
+    JOIN windows w ON w.id = dbw.window_id
+    WHERE dbw.display_board_id = ?
+), scoped_queue_types AS (
+    SELECT DISTINCT wqt.queue_type_id
+    FROM window_queue_types wqt
+    JOIN scoped_windows sw ON sw.id = wqt.window_id
+)
+SELECT DISTINCT c.id, c.company_short_name
+FROM tickets t
+JOIN companies c ON c.id = t.company_id
+JOIN scoped_queue_types sqt ON sqt.queue_type_id = t.queue_type_id
+WHERE t.archived = false
+ORDER BY c.company_short_name
+"""
