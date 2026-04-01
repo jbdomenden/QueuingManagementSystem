@@ -4,7 +4,6 @@ import QueuingManagementSystem.auth.services.PasswordCrypto
 import org.mindrot.jbcrypt.BCrypt
 import org.slf4j.LoggerFactory
 import java.sql.Connection
-import java.util.UUID
 
 object SampleUsersBootstrap {
     private val logger = LoggerFactory.getLogger(SampleUsersBootstrap::class.java)
@@ -80,9 +79,9 @@ object SampleUsersBootstrap {
         }
 
         val sql = """
-            INSERT INTO users(username, password_hash, full_name, role, department_id, auth_token, is_active)
-            VALUES (?, ?, ?, ?, ?, ?, true)
-            ON CONFLICT (username) DO NOTHING
+            INSERT INTO queue_users(email, password_hash, role, full_name, department_id, is_active, force_password_change)
+            VALUES (?, ?, ?, ?, ?, true, ?)
+            ON CONFLICT (email) DO NOTHING
         """.trimIndent()
 
         connection.prepareStatement(sql).use { statement ->
