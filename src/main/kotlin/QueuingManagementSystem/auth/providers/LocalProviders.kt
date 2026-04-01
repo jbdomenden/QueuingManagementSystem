@@ -1,7 +1,6 @@
 package QueuingManagementSystem.auth.providers
 
 import QueuingManagementSystem.auth.services.AuthService
-import QueuingManagementSystem.auth.services.JwtService
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.devices.DeviceAuthService
 import QueuingManagementSystem.devices.DeviceType
@@ -15,13 +14,13 @@ class LocalAuthProvider(private val authService: AuthService) : AuthProvider {
             forcePasswordChange = result.forcePasswordChange,
             principal = result.principal,
             success = result.result.Access,
-            message = result.result.Message
+            message = result.result.Status
         )
     }
 
     override fun changePassword(token: String, currentPassword: String, newPassword: String): Pair<Boolean, String> {
         val result: GlobalCredentialResponse = authService.changePassword(token, currentPassword, newPassword)
-        return Pair(result.Access, result.Message)
+        return Pair(result.Access, result.Status)
     }
 
     override fun logout(token: String): Boolean = token.isNotBlank()
