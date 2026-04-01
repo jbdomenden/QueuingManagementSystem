@@ -1239,3 +1239,70 @@ pre {
 }
 
 .hidden { display: none !important; }
+
+
+#topNav.topbar {
+  background: transparent;
+  padding: 0;
+  display: block;
+}
+
+.staff-shell {
+  background: #eceff5;
+}
+
+.shell-header {
+  width: 100%;
+  min-height: 64px;
+  background: #ffffff;
+  box-shadow: 0 1px 8px rgba(15, 23, 42, 0.08);
+  border-bottom: 1px solid #dfe4ee;
+}
+
+.shell-header-left {
+  min-width: 0;
+}
+
+.shell-title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.shell-header-right {
+  position: relative;
+}
+
+.kebab-menu {
+  top: 44px;
+  right: 0;
+}
+
+.staff-shell .container {
+  max-width: 1280px;
+  margin-top: 18px;
+}
+
+.dashboard-panel {
+  border-radius: 12px;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.dashboard-module-card {
+  min-height: 156px;
+}
+
+@media (max-width: 720px) {
+  .shell-user-name {
+    display: none;
+  }
+  .shell-title {
+    font-size: 16px;
+  }
+  .staff-shell .container {
+    padding: 0 8px;
+  }
+}
