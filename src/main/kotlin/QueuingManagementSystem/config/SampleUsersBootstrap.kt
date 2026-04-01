@@ -14,15 +14,21 @@ object SampleUsersBootstrap {
     )
 
     private val accounts = listOf(
-        SampleUser("superadmin", "admin123", "Super Admin", "SUPERADMIN", null),
-        SampleUser("admin_level", "admin123", "Admin Level", "DEPARTMENT_ADMIN", 1),
-        SampleUser("user_level", "user123", "User Level", "HANDLER", 1)
+        SampleUser("superadmin@qms.local", "admin123", "Super Admin", "SUPERADMIN", null),
+        SampleUser("departmentadmin@qms.local", "admin123", "Department Admin", "DEPARTMENT_ADMIN", 1),
+        SampleUser("supervisor@qms.local", "sup123", "Supervisor", "DEPARTMENT_ADMIN", 1),
+        SampleUser("moderator@qms.local", "mod123", "Moderator", "DEPARTMENT_ADMIN", 1),
+        SampleUser("handler@qms.local", "handler123", "Handler", "HANDLER", 1)
     )
 
     fun bootstrap() {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
+                if (hasAnyStaffUsers(connection)) {
+                    connection.commit()
+                    return
+                }
                 accounts.forEach { upsertUser(connection, it) }
                 connection.commit()
             } catch (e: Exception) {
@@ -40,13 +46,7 @@ object SampleUsersBootstrap {
         val sql = """
             INSERT INTO users(username, password_hash, full_name, role, department_id, auth_token, is_active)
             VALUES (?, ?, ?, ?, ?, ?, true)
-            ON CONFLICT (username) DO UPDATE
-            SET password_hash = EXCLUDED.password_hash,
-                full_name = EXCLUDED.full_name,
-                role = EXCLUDED.role,
-                department_id = EXCLUDED.department_id,
-                auth_token = EXCLUDED.auth_token,
-                is_active = true
+            ON CONFLICT (username) DO NOTHING
         """.trimIndent()
 
         connection.prepareStatement(sql).use { statement ->
@@ -57,6 +57,12 @@ object SampleUsersBootstrap {
             if (resolvedDepartmentId == null) statement.setNull(5, java.sql.Types.INTEGER) else statement.setInt(5, resolvedDepartmentId)
             statement.setString(6, UUID.randomUUID().toString())
             statement.executeUpdate()
+        }
+    }
+
+    private fun hasAnyStaffUsers(connection: Connection): Boolean {
+        connection.prepareStatement("SELECT 1 FROM users LIMIT 1").use { statement ->
+            statement.executeQuery().use { rs -> return rs.next() }
         }
     }
 
