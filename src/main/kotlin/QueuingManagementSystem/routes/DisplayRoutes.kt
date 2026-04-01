@@ -1,7 +1,9 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.canAccessDepartment
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.models.DisplayBoardRequest
@@ -38,14 +40,15 @@ fun Route.displayRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name) || !session.permissions.contains("display_manage")) {
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@post
+                if (!session.permissions.contains("display_manage")) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
                 val request = call.receive<DisplayBoardRequest>()
                 val errors = request.validateDisplayBoardRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != request.department_id) {
+                if (!session.canAccessDepartment(request.department_id)) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 
@@ -59,12 +62,13 @@ fun Route.displayRoutes() {
         put("/update") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name) || !session.permissions.contains("display_manage")) {
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@put
+                if (!session.permissions.contains("display_manage")) {
                     return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
                 val request = call.receive<DisplayBoardRequest>()
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != request.department_id) {
+                if (!session.canAccessDepartment(request.department_id)) {
                     return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
                 call.respond(HttpStatusCode.OK, GlobalCredentialResponse(200, controller.updateDisplayBoard(request), "Display updated"))
@@ -76,7 +80,8 @@ fun Route.displayRoutes() {
         post("/assign-windows") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name) || !session.permissions.contains("display_manage")) {
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@post
+                if (!session.permissions.contains("display_manage")) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
                 }
 
@@ -84,7 +89,7 @@ fun Route.displayRoutes() {
                 val display = controller.getDisplayBoardById(request.display_board_id)
                     ?: return@post call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Display not found"))
 
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != display.department_id) {
+                if (!session.canAccessDepartment(display.department_id)) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 

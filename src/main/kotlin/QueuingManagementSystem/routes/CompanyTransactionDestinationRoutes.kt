@@ -1,7 +1,9 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
+import QueuingManagementSystem.common.requireRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.CompanyTransactionDestinationController
 import QueuingManagementSystem.models.*
@@ -28,7 +30,7 @@ fun Route.companyTransactionDestinationRoutes() {
         get("/company-transaction/{companyTransactionId}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
                 val companyTransactionId = call.parameters["companyTransactionId"]?.toIntOrNull() ?: 0
                 if (companyTransactionId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyTransactionId is required"))
                 call.respond(HttpStatusCode.OK, CompanyTransactionDestinationListResponse(controller.getCompanyTransactionDestinationsByTransactionId(companyTransactionId), GlobalCredentialResponse(200, true, "OK")))
@@ -40,7 +42,7 @@ fun Route.companyTransactionDestinationRoutes() {
         get("/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
                 val item = controller.getCompanyTransactionDestinationById(id)
@@ -54,7 +56,7 @@ fun Route.companyTransactionDestinationRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@post
                 val request = call.receive<CompanyTransactionDestinationRequest>()
                 val errors = request.validateCompanyTransactionDestinationRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
@@ -68,7 +70,7 @@ fun Route.companyTransactionDestinationRoutes() {
         put("/update/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@put
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
                 val request = call.receive<CompanyTransactionDestinationRequest>()
@@ -84,7 +86,7 @@ fun Route.companyTransactionDestinationRoutes() {
         patch("/toggle/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@patch call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@patch
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
                 val request = call.receive<CompanyTransactionDestinationToggleRequest>()
@@ -100,7 +102,7 @@ fun Route.companyTransactionDestinationRoutes() {
         delete("/deactivate/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@delete
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@delete call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
                 val affected = controller.deactivateCompanyTransactionDestination(id)
