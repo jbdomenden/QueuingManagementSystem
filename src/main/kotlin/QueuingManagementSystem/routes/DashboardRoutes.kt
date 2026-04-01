@@ -33,22 +33,13 @@ fun Route.dashboardRoutes() {
             }
 
             val modules = listOf(
-                DashboardModuleModel(
-                    moduleKey = "USER_MANAGEMENT",
-                    moduleLabel = "User Management",
-                    route = "/users.html",
-                    iconKey = "users",
-                    isVisible = principal.hasAccess(AccessKey.USER_MANAGEMENT_VIEW),
-                    isEnabled = principal.hasAccess(AccessKey.USER_MANAGEMENT_VIEW)
-                ),
-                DashboardModuleModel(
-                    moduleKey = "ASSET_MANAGEMENT",
-                    moduleLabel = "Asset Management",
-                    route = "/assets.html",
-                    iconKey = "assets",
-                    isVisible = principal.hasAccess(AccessKey.ASSET_MANAGEMENT_VIEW),
-                    isEnabled = principal.hasAccess(AccessKey.ASSET_MANAGEMENT_VIEW)
-                )
+                DashboardModuleModel("USER_MANAGEMENT", "User Management", "/users.html", "users", principal.hasAccess(AccessKey.USER_MANAGEMENT_VIEW), principal.hasAccess(AccessKey.USER_MANAGEMENT_VIEW)),
+                DashboardModuleModel("ASSET_MANAGEMENT", "Asset Management", "/assets.html", "assets", principal.hasAccess(AccessKey.ASSET_MANAGEMENT_VIEW), principal.hasAccess(AccessKey.ASSET_MANAGEMENT_VIEW)),
+                DashboardModuleModel("COMPANIES", "Companies", "/companies.html", "companies", isSuperAdmin, isSuperAdmin),
+                DashboardModuleModel("COMPANY_TRANSACTIONS", "Company Transactions", "/company-transactions.html", "transactions", isSuperAdmin, isSuperAdmin),
+                DashboardModuleModel("TRANSACTION_DESTINATIONS", "Transaction Destinations", "/company-transaction-destinations.html", "destinations", isSuperAdmin, isSuperAdmin),
+                DashboardModuleModel("DISPLAY_MANAGEMENT", "Display", "/display.html", "display", isSuperAdmin, isSuperAdmin),
+                DashboardModuleModel("ARCHIVED", "Archived", "/archived.html", "archived", isSuperAdmin, isSuperAdmin)
             )
 
             call.respond(

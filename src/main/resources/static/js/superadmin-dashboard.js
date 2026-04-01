@@ -3,9 +3,8 @@
   window.App.renderNav('superadmin-dashboard.html');
 
   function iconFor(key) {
-    if (key === 'users') return '👤';
-    if (key === 'assets') return '🖥️';
-    return '📦';
+    const map = { users:'👤', assets:'🖥️', companies:'🏢', transactions:'📋', destinations:'📍', display:'📺', archived:'🗄️' };
+    return map[key] || '📦';
   }
 
   function card(module) {
@@ -19,7 +18,6 @@
 
   async function load() {
     const me = await window.Api.apiRequest('/api/auth/me');
-    window.App.setDebug('debugPanel', me);
     const principal = me.data && me.data.principal;
     if (!me.ok || !principal) {
       location.href = '/index.html';
@@ -27,7 +25,6 @@
     }
 
     const dashboard = await window.Api.apiRequest('/api/dashboard/superadmin');
-    window.App.setDebug('debugPanel', dashboard);
     if (!dashboard.ok) {
       document.getElementById('dashboardGrid').innerHTML = '<div class="small">Dashboard access denied.</div>';
       return;

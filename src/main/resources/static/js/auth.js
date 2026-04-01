@@ -1,7 +1,6 @@
 (function () {
   const form = document.getElementById('loginForm');
   const message = document.getElementById('loginMessage');
-  const debug = document.getElementById('debugPanel');
 
   if (!form) return;
 
@@ -16,15 +15,6 @@
       method: 'POST',
       body: JSON.stringify({ email, password })
     });
-
-    if (debug) {
-      debug.textContent = window.Utils.toPrettyJson({
-        endpoint: result.endpoint,
-        status: result.status,
-        request: result.requestBody,
-        response: result.data
-      });
-    }
 
     if (!result.ok || !result.data || !result.data.result || !result.data.result.Access) {
       message.textContent = (result.data && result.data.result && (result.data.result.Status || result.data.result.Message)) || 'Login failed';
