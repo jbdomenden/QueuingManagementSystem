@@ -25,6 +25,10 @@ object SampleUsersBootstrap {
         ConnectionPoolManager.getConnection().use { connection ->
             connection.autoCommit = false
             try {
+                if (!tableExists(connection, "users")) {
+                    connection.commit()
+                    return
+                }
                 if (hasAnyStaffUsers(connection)) {
                     connection.commit()
                     return
@@ -62,6 +66,21 @@ object SampleUsersBootstrap {
 
     private fun hasAnyStaffUsers(connection: Connection): Boolean {
         connection.prepareStatement("SELECT 1 FROM users LIMIT 1").use { statement ->
+            statement.executeQuery().use { rs -> return rs.next() }
+        }
+    }
+
+    private fun tableExists(connection: Connection, tableName: String): Boolean {
+        connection.prepareStatement(
+            """
+            SELECT 1
+            FROM information_schema.tables
+            WHERE table_schema = current_schema()
+              AND table_name = ?
+            LIMIT 1
+            """.trimIndent()
+        ).use { statement ->
+            statement.setString(1, tableName)
             statement.executeQuery().use { rs -> return rs.next() }
         }
     }

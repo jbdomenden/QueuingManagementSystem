@@ -839,3 +839,140 @@ pre {
     font-size: 18px;
   }
 }
+
+
+.ticket-row {
+  cursor: pointer;
+}
+
+.ticket-row.ticket-selected {
+  background: #bfdbfe;
+}
+
+.wallboard-body {
+  margin: 0;
+  background: #f3f4f6;
+  overflow: hidden;
+}
+
+.wallboard-layout {
+  height: 100vh;
+  display: grid;
+  grid-template-rows: 62% 38%;
+  gap: 10px;
+  padding: 10px;
+}
+
+.wallboard-upper {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1.3fr 2fr;
+  gap: 10px;
+}
+
+.wallboard-lower {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.wb-block {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 8px;
+}
+
+.wb-title-band {
+  background: #bcc9da;
+  color: #1f2ea8;
+  border: 1px solid #d7dee7;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.wb-title-band h1 {
+  margin: 0;
+  font-size: clamp(30px, 4vw, 64px);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.wb-title-band h1 span {
+  font-size: 0.6em;
+  font-weight: 800;
+}
+
+.wb-title-band-with-filter {
+  justify-content: space-between;
+  padding-inline: 20px;
+}
+
+.wb-filter {
+  width: 220px;
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 28px;
+  font-weight: 700;
+  border: none;
+  border-radius: 6px;
+}
+
+.wb-panel {
+  background: #f8fafc;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.12);
+  overflow: auto;
+}
+
+.wb-onqueue-panels {
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.wb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.wb-table th {
+  color: #2233a5;
+  background: #c8d3e2;
+  text-transform: uppercase;
+  text-align: center;
+  font-size: clamp(18px, 2vw, 48px);
+  font-weight: 900;
+  border: 1px solid #325bde;
+  padding: 8px;
+  white-space: nowrap;
+}
+
+.wb-table td {
+  text-align: center;
+  font-size: clamp(24px, 2.5vw, 56px);
+  font-weight: 800;
+  color: #111827;
+  padding: 6px 8px;
+}
+
+@media (max-width: 1200px) {
+  .wallboard-layout {
+    grid-template-rows: 56% 44%;
+  }
+
+  .wallboard-upper {
+    grid-template-columns: 1.1fr 1.9fr;
+  }
+
+  .wb-filter {
+    width: 160px;
+    font-size: 18px;
+  }
+}
