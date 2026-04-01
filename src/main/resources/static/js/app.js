@@ -9,6 +9,8 @@
       ['kiosk.html', 'Kiosk'],
       ['handler.html', 'Handler'],
       ['admin.html', 'Admin'],
+      ['users.html', 'User Management'],
+      ['assets.html', 'Asset Management'],
       ['companies.html', 'Companies'],
       ['company-transactions.html', 'Company Transactions'],
       ['company-transaction-destinations.html', 'Transaction Destinations'],
