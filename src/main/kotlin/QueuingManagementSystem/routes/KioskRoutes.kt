@@ -2,8 +2,8 @@ package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.extractBearerToken
-import QueuingManagementSystem.common.isSuperAdmin
-import QueuingManagementSystem.common.UserRole
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.KioskController
 import QueuingManagementSystem.models.GlobalCredentialResponse
@@ -31,10 +31,7 @@ fun Route.kioskRoutes() {
                 call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
                 return null
             }
-        if (!session.isSuperAdmin() && session.role != UserRole.DEPARTMENT_ADMIN.name) {
-            call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-            return null
-        }
+        if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return null
         return session
     }
 

@@ -2,6 +2,8 @@ package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.canAccessDepartment
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.QueueTypeController
@@ -64,8 +66,10 @@ fun Route.queueTypeRoutes() {
 
         get("/company/{companyId}") {
             try {
+                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@get
                 val companyId = call.parameters["companyId"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyId is required"))
+                if (device.companyId != null && device.companyId != companyId) return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Company scope violation"))
                 call.respond(HttpStatusCode.OK, ListResponse(controller.getQueueTypesByCompanyId(companyId), GlobalCredentialResponse(200, true, "OK")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
