@@ -1,7 +1,11 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.devices.requireDeviceContext
+import QueuingManagementSystem.devices.DeviceType
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
+import QueuingManagementSystem.common.requireRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.CompanyController
 import QueuingManagementSystem.models.CompanyKioskBoard
@@ -29,6 +33,11 @@ fun Route.companyRoutes() {
     route("/companies") {
         get("/kiosk") {
             try {
+                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@get
+                if (device.companyId != null) {
+                    val scoped = controller.getActiveCompaniesForKiosk().filter { it.id == device.companyId }
+                    return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", scoped), GlobalCredentialResponse(200, true, "OK")))
+                }
                 call.respond(
                     HttpStatusCode.OK,
                     SingleResponse(
@@ -44,9 +53,7 @@ fun Route.companyRoutes() {
         get("/list") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@get
 
                 call.respond(
                     HttpStatusCode.OK,
@@ -60,9 +67,7 @@ fun Route.companyRoutes() {
         get("/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@get
 
                 val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) {
@@ -86,9 +91,7 @@ fun Route.companyRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@post
 
                 val request = call.receive<CompanyRequest>()
                 val errors = request.validateCompanyRequest()
@@ -110,9 +113,7 @@ fun Route.companyRoutes() {
         put("/update/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@put
 
                 val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) {
@@ -139,9 +140,7 @@ fun Route.companyRoutes() {
         delete("/deactivate/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@delete
 
                 val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) {
@@ -158,9 +157,7 @@ fun Route.companyRoutes() {
         delete("/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != UserRole.SUPERADMIN.name) {
-                    return@delete call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@delete
 
                 val companyId = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) {

@@ -1,7 +1,9 @@
 package QueuingManagementSystem.routes
 
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.canAccessDepartment
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireAnyRole
 import QueuingManagementSystem.controllers.AreaController
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.models.AreaRequest
@@ -26,14 +28,12 @@ fun Route.areaRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@post
 
                 val request = call.receive<AreaRequest>()
                 val errors = request.validateAreaRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != request.department_id) {
+                if (!session.canAccessDepartment(request.department_id)) {
                     return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 
@@ -46,9 +46,7 @@ fun Route.areaRoutes() {
         put("/update") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role !in listOf(UserRole.SUPERADMIN.name, UserRole.DEPARTMENT_ADMIN.name)) {
-                    return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden"))
-                }
+                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@put
 
                 val request = call.receive<AreaRequest>()
                 val errors = request.validateAreaRequest()
@@ -57,7 +55,7 @@ fun Route.areaRoutes() {
                     if (request.id == null) all.add(GlobalCredentialResponse(400, false, "id is required"))
                     return@put call.respond(HttpStatusCode.BadRequest, all)
                 }
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != request.department_id) {
+                if (!session.canAccessDepartment(request.department_id)) {
                     return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 
@@ -72,7 +70,7 @@ fun Route.areaRoutes() {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
                 val departmentId = call.parameters["departmentId"]?.toIntOrNull() ?: 0
                 if (departmentId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "departmentId is required"))
-                if (session.role == UserRole.DEPARTMENT_ADMIN.name && session.department_id != departmentId) {
+                if (!session.canAccessDepartment(departmentId)) {
                     return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
 

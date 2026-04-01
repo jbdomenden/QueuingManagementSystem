@@ -87,6 +87,22 @@ CREATE TABLE IF NOT EXISTS queue_users (
 
 CREATE INDEX IF NOT EXISTS idx_queue_users_email ON queue_users(email);
 
+
+CREATE TABLE IF NOT EXISTS queue_devices (
+    id SERIAL PRIMARY KEY,
+    device_key VARCHAR(255) UNIQUE NOT NULL,
+    device_name VARCHAR(255) NOT NULL,
+    device_type VARCHAR(20) NOT NULL CHECK (device_type IN ('KIOSK', 'DISPLAY')),
+    company_id INT NULL REFERENCES companies(id),
+    department_id INT NULL REFERENCES departments(id),
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    last_seen_at TIMESTAMP NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_queue_devices_key ON queue_devices(device_key);
+
 CREATE TABLE IF NOT EXISTS queue_types (
     id SERIAL PRIMARY KEY,
     department_id INT NOT NULL REFERENCES departments(id),

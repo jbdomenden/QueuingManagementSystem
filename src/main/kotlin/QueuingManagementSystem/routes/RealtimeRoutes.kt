@@ -1,5 +1,6 @@
 package QueuingManagementSystem.routes
 
+import QueuingManagementSystem.devices.DeviceType
 import QueuingManagementSystem.controllers.DisplayController
 import QueuingManagementSystem.models.DisplayFilterParams
 import QueuingManagementSystem.realtime.AdminSocketManager
@@ -36,6 +37,12 @@ fun Route.realtimeRoutes() {
         }
 
         webSocket("/ws/display/{displayId}") {
+            val deviceKey = call.request.queryParameters["device_key"] ?: call.request.headers["X-Device-Key"]
+            val device = if (!deviceKey.isNullOrBlank()) QueuingManagementSystem.config.ProviderRegistry.deviceAuthProvider.authenticateDevice(deviceKey, DeviceType.DISPLAY.name) else null
+            if (device == null) {
+                close()
+                return@webSocket
+            }
             val displayId = call.parameters["displayId"]?.toIntOrNull() ?: 0
             if (displayId <= 0) {
                 close()
