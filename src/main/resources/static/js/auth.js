@@ -9,12 +9,12 @@
     e.preventDefault();
     message.textContent = '';
 
-    const username = document.getElementById('username').value.trim();
+    const email = document.getElementById('username').value.trim();
     const password = document.getElementById('password').value;
 
-    const result = await window.Api.apiRequest('/auth/login', {
+    const result = await window.Api.apiRequest('/api/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ email, password })
     });
 
     if (debug) {
@@ -31,17 +31,19 @@
       return;
     }
 
+    const principal = result.data.principal || {};
+
     window.StorageHelper.saveAuth({
       token: result.data.token,
-      role: result.data.role,
-      user_id: result.data.user_id,
-      department_id: result.data.department_id,
-      full_name: result.data.full_name
+      role: principal.role,
+      user_id: principal.userId,
+      department_id: principal.departmentId,
+      full_name: principal.fullName
     });
 
-    if (result.data.role === 'DEPARTMENT_ADMIN') {
+    if (principal.role === 'DEPARTMENT_ADMIN') {
       location.href = '/admin.html';
-    } else if (result.data.role === 'HANDLER') {
+    } else if (principal.role === 'HANDLER') {
       location.href = '/handler.html';
     } else {
       location.href = '/dashboard.html';

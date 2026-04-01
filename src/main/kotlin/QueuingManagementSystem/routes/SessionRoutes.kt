@@ -1,11 +1,12 @@
 package QueuingManagementSystem.routes
 
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.normalizedRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.SessionController
 import QueuingManagementSystem.models.*
 import io.ktor.http.HttpStatusCode
-import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
@@ -38,7 +39,7 @@ fun Route.sessionRoutes() {
             val limit = (call.request.queryParameters["limit"]?.toIntOrNull() ?: 100).coerceIn(1, 500)
             val offset = (call.request.queryParameters["offset"]?.toIntOrNull() ?: 0).coerceAtLeast(0)
 
-            if (session.role != "SUPERADMIN") {
+            if (session.normalizedRole() != Role.SUPER_ADMIN) {
                 if (requestedDepartment != null && requestedDepartment != session.departmentId) {
                     return@get call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
                 }
@@ -69,7 +70,7 @@ fun Route.sessionRoutes() {
             val sessionId = call.parameters["sessionId"] ?: ""
             if (sessionId.isBlank()) return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "sessionId is required"))
 
-            if (actor.role != "SUPERADMIN" && !sessionController.canAdminAccessSession(sessionId, actor.departmentId)) {
+            if (actor.normalizedRole() != Role.SUPER_ADMIN && !sessionController.canAdminAccessSession(sessionId, actor.departmentId)) {
                 return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Department scope violation"))
             }
 
