@@ -55,30 +55,18 @@ class AuthService(
 
     fun bootstrapIfEmpty() {
         if (userRepository.count() > 0) return
-
-        val defaults = listOf(
-            Triple("superadmin@qms.local", "SUPERADMIN", "Super Admin"),
-            Triple("departmentadmin@qms.local", "DEPARTMENT_ADMIN", "Department Admin"),
-            Triple("supervisor@qms.local", "SUPERVISOR", "Supervisor"),
-            Triple("moderator@qms.local", "MODERATOR", "Moderator"),
-            Triple("handler@qms.local", "HANDLER", "Handler")
-        )
-
-        defaults.forEach { item ->
-            val defaultPassword = "admin123"
-            userRepository.create(
-                CreateQueueUserRequest(
-                    email = item.first,
-                    passwordHash = PasswordCrypto.hashPassword(defaultPassword),
-                    role = item.second,
-                    fullName = item.third,
-                    companyId = null,
-                    departmentId = if (item.second == "SUPERADMIN") null else 1,
-                    isActive = true,
-                    forcePasswordChange = true
-                )
+        userRepository.create(
+            CreateQueueUserRequest(
+                email = "superadmin@qms.local",
+                passwordHash = PasswordCrypto.hashPassword("admin123"),
+                role = "SUPER_ADMIN",
+                fullName = "Super Admin",
+                companyId = null,
+                departmentId = null,
+                isActive = true,
+                forcePasswordChange = true
             )
-        }
+        )
     }
 
     private fun getCurrentQueueUser(token: String): QueueUser? {
@@ -95,13 +83,14 @@ class AuthService(
         role = role,
         companyId = companyId,
         departmentId = departmentId,
-        authSource = "QUEUE_USERS"
+        permissions = userRepository.listPermissions(id, role),
+        authSource = "LOCAL"
     )
 
     private fun unauthorized(message: String) = StaffLoginResult(
         accessToken = "",
         forcePasswordChange = false,
-        principal = AuthPrincipal(0, "", "", "", null, null, "QUEUE_USERS"),
+        principal = AuthPrincipal(0, "", "", "", null, null, emptyList(), "LOCAL"),
         result = GlobalCredentialResponse(401, false, message)
     )
 }

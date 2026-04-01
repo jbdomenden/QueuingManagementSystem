@@ -20,6 +20,7 @@ import QueuingManagementSystem.routes.ticketRoutes
 import QueuingManagementSystem.routes.userRoutes
 import QueuingManagementSystem.routes.windowRoutes
 import QueuingManagementSystem.routes.workflowTemplateRoutes
+import QueuingManagementSystem.routes.staffAccessRoutes
 import io.ktor.http.ContentType
 import io.ktor.server.application.Application
 import io.ktor.server.http.content.staticResources
@@ -65,6 +66,7 @@ fun Application.configureRouting() {
 
         authRoutes()
         staffAuthRoutes()
+        staffAccessRoutes()
         sessionRoutes()
         departmentRoutes()
         companyRoutes()

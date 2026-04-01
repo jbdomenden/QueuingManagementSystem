@@ -38,10 +38,13 @@
       role: principal.role,
       user_id: principal.userId,
       department_id: principal.departmentId,
-      full_name: principal.fullName
+      full_name: principal.fullName,
+      permissions: principal.permissions || []
     });
 
-    if (principal.role === 'DEPARTMENT_ADMIN') {
+    if (principal.role === 'SUPER_ADMIN' || (principal.permissions||[]).includes('USER_MANAGEMENT_VIEW')) {
+      location.href = '/users.html';
+    } else if (principal.role === 'DEPARTMENT_ADMIN') {
       location.href = '/admin.html';
     } else if (principal.role === 'HANDLER') {
       location.href = '/handler.html';
