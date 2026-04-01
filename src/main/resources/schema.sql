@@ -274,6 +274,30 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS login_audit (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INT NULL REFERENCES users(id),
+    username VARCHAR(100) NOT NULL,
+    success BOOLEAN NOT NULL,
+    event_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    ip_address VARCHAR(100) NULL,
+    user_agent TEXT NULL,
+    reason VARCHAR(100) NULL
+);
+
+CREATE TABLE IF NOT EXISTS failed_login_audit (
+    id BIGSERIAL PRIMARY KEY,
+    username VARCHAR(100) NOT NULL,
+    attempted_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    ip_address VARCHAR(100) NULL,
+    user_agent TEXT NULL,
+    reason VARCHAR(100) NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_login_audit_user_event_at ON login_audit(user_id, event_at DESC);
+CREATE INDEX IF NOT EXISTS idx_failed_login_audit_username_attempted ON failed_login_audit(username, attempted_at DESC);
+
+
 CREATE INDEX IF NOT EXISTS idx_tickets_archived ON tickets(archived);
 CREATE INDEX IF NOT EXISTS idx_tickets_service_date ON tickets(service_date);
 CREATE INDEX IF NOT EXISTS idx_tickets_department_id ON tickets(department_id);
