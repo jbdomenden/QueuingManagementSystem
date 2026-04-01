@@ -104,18 +104,22 @@ class UserRepository {
         if (role.uppercase() == "SUPER_ADMIN" || role.uppercase() == "SUPERADMIN") return ALL_ACCESS_KEYS.toList()
         val sql = "SELECT access_key, is_allowed FROM user_access WHERE user_id = ?"
         val allowed = mutableSetOf<String>()
-        ConnectionPoolManager.getConnection().use { connection ->
-            connection.prepareStatement(sql).use { statement ->
-                statement.setInt(1, userId)
-                statement.executeQuery().use { rs ->
-                    while (rs.next()) {
-                        val key = rs.getString("access_key")
-                        if (rs.getBoolean("is_allowed")) allowed.add(key) else allowed.remove(key)
+        return try {
+            ConnectionPoolManager.getConnection().use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setInt(1, userId)
+                    statement.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            val key = rs.getString("access_key")
+                            if (rs.getBoolean("is_allowed")) allowed.add(key) else allowed.remove(key)
+                        }
                     }
                 }
             }
+            allowed.toList()
+        } catch (_: Exception) {
+            emptyList()
         }
-        return allowed.toList()
     }
 
     fun count(): Int {
