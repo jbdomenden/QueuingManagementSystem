@@ -4,8 +4,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.*
-import QueuingManagementSystem.common.UserRole
 import QueuingManagementSystem.common.extractBearerToken
+import QueuingManagementSystem.common.Role
+import QueuingManagementSystem.common.requireRole
 import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.controllers.AuditController
 import QueuingManagementSystem.controllers.DepartmentController
@@ -20,9 +21,7 @@ fun Route.departmentRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != QueuingManagementSystem.common.UserRole.SUPERADMIN.name) return@post call.respond(HttpStatusCode.Forbidden,
-                    QueuingManagementSystem.models.GlobalCredentialResponse(403, false, "Forbidden")
-                )
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@post
                 val request = call.receive<QueuingManagementSystem.models.DepartmentRequest>()
                 val errors = request.validateDepartmentRequest()
                 if (errors.isNotEmpty()) return@post call.respond(HttpStatusCode.BadRequest, errors)
@@ -49,9 +48,7 @@ fun Route.departmentRoutes() {
         put("/update") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (session.role != QueuingManagementSystem.common.UserRole.SUPERADMIN.name) return@put call.respond(HttpStatusCode.Forbidden,
-                    QueuingManagementSystem.models.GlobalCredentialResponse(403, false, "Forbidden")
-                )
+                if (!requireRole(session.role, Role.SUPER_ADMIN)) return@put
                 val request = call.receive<QueuingManagementSystem.models.DepartmentRequest>()
                 val errors = request.validateDepartmentRequest()
                 if (errors.isNotEmpty() || request.id == null) return@put call.respond(HttpStatusCode.BadRequest, errors.ifEmpty { mutableListOf(

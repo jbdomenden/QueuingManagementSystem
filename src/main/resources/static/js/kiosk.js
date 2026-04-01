@@ -28,6 +28,14 @@
   let crewValidation = null;
   let currentStage = 'company';
 
+  const pageParams = new URLSearchParams(window.location.search);
+  const activeDeviceKey = pageParams.get('device_key') || '';
+
+  function withDeviceKey(path) {
+    if (!activeDeviceKey) return path;
+    return `${path}${path.includes('?') ? '&' : '?'}device_key=${encodeURIComponent(activeDeviceKey)}`;
+  }
+
   function updateDateTime() {
     const now = new Date();
     document.getElementById('liveDate').textContent = now.toLocaleDateString(undefined, {
@@ -145,9 +153,8 @@
     document.querySelectorAll('.company-card').forEach(btn => {
       btn.onclick = async () => {
         selectedCompany = { id: Number(btn.dataset.companyId), name: btn.dataset.companyName };
-        selectedCompanyBadge.textContent = selectedCompany.name;
-        setStage('transaction');
-        await loadTransactionsByCompany(selectedCompany.id);
+        sessionStorage.setItem('kiosk.selectedCompany', JSON.stringify(selectedCompany));
+        location.href = withDeviceKey(`/kiosk-transactions.html?companyId=${selectedCompany.id}&companyName=${encodeURIComponent(selectedCompany.name)}`);
       };
     });
   }
@@ -268,9 +275,33 @@
   };
   printBtn.onclick = () => window.print();
 
+
+  async function resumeFlowIfRequested() {
+    const resume = pageParams.get('resume');
+    const storedCompany = sessionStorage.getItem('kiosk.selectedCompany');
+    const storedTransaction = sessionStorage.getItem('kiosk.selectedTransaction');
+    if (resume !== 'transaction' || !storedCompany || !storedTransaction) {
+      resetToCompanySelection();
+      await loadCompanies();
+      return;
+    }
+
+    selectedCompany = JSON.parse(storedCompany);
+    selectedCompanyBadge.textContent = selectedCompany.name || '';
+    selectedTransaction = JSON.parse(storedTransaction);
+
+    if (selectedTransaction.requiresCrewValidation) {
+      setStage('crew');
+      crewIdentifierDisplay.value = '';
+      crewStatusMessage.textContent = selectedTransaction.inputMode === 'RFID' ? 'Waiting for RFID scan' : 'Enter your identifier';
+      if (selectedTransaction.inputMode === 'RFID' || selectedTransaction.inputMode === 'BOTH') rfidCaptureInput.focus();
+    } else {
+      await loadDestinations();
+    }
+  }
+
   setupKeypad();
   updateDateTime();
   setInterval(updateDateTime, 1000);
-  resetToCompanySelection();
-  loadCompanies();
+  resumeFlowIfRequested();
 })();
