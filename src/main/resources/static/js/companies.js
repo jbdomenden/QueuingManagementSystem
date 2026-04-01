@@ -7,11 +7,11 @@
   function getPayload() {
     return {
       companyCode: document.getElementById('companyCode').value.trim(),
-      companyShortName: document.getElementById('companyShortName').value.trim(),
-      companyFullName: document.getElementById('companyFullName').value.trim(),
-      displaySize: document.getElementById('displaySize').value,
-      sortOrder: Number(document.getElementById('sortOrder').value || 0),
-      status: document.getElementById('status').value
+      companyName: document.getElementById('companyName').value.trim(),
+      companyDescription: document.getElementById('companyDescription').value.trim(),
+      cardSizeType: document.getElementById('cardSizeType').value,
+      displayOrder: Number(document.getElementById('displayOrder').value || 0),
+      isActive: document.getElementById('isActive').value === 'true'
     };
   }
 
@@ -19,11 +19,11 @@
     editingCompanyId = null;
     document.getElementById('formTitle').textContent = 'Create Company';
     document.getElementById('companyCode').value = '';
-    document.getElementById('companyShortName').value = '';
-    document.getElementById('companyFullName').value = '';
-    document.getElementById('displaySize').value = 'BIG';
-    document.getElementById('sortOrder').value = 0;
-    document.getElementById('status').value = 'ACTIVE';
+    document.getElementById('companyName').value = '';
+    document.getElementById('companyDescription').value = '';
+    document.getElementById('cardSizeType').value = 'BIG';
+    document.getElementById('displayOrder').value = 0;
+    document.getElementById('isActive').value = 'true';
   }
 
   async function loadCompanies() {
@@ -33,14 +33,16 @@
 
     document.getElementById('companiesTableBody').innerHTML = rows.map(x => `
       <tr>
-        <td>${x.companyShortName}</td>
-        <td>${x.companyFullName}</td>
-        <td>${x.displaySize}</td>
-        <td>${x.sortOrder}</td>
-        <td>${x.status}</td>
+        <td>${x.companyCode}</td>
+        <td>${x.companyName}</td>
+        <td>${x.companyDescription || ''}</td>
+        <td>${x.cardSizeType}</td>
+        <td>${x.displayOrder}</td>
+        <td>${x.isActive ? 'ACTIVE' : 'INACTIVE'}</td>
         <td>
           <button class="action-btn" data-edit="${x.id}">Edit</button>
           <button class="action-btn danger" data-deactivate="${x.id}">Deactivate</button>
+          <button class="action-btn danger" data-delete="${x.id}">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -55,19 +57,28 @@
         editingCompanyId = id;
         document.getElementById('formTitle').textContent = `Edit Company #${id}`;
         document.getElementById('companyCode').value = item.companyCode;
-        document.getElementById('companyShortName').value = item.companyShortName;
-        document.getElementById('companyFullName').value = item.companyFullName;
-        document.getElementById('displaySize').value = item.displaySize;
-        document.getElementById('sortOrder').value = item.sortOrder;
-        document.getElementById('status').value = item.status;
+        document.getElementById('companyName').value = item.companyName;
+        document.getElementById('companyDescription').value = item.companyDescription || '';
+        document.getElementById('cardSizeType').value = item.cardSizeType;
+        document.getElementById('displayOrder').value = item.displayOrder;
+        document.getElementById('isActive').value = String(item.isActive);
       };
     });
 
     document.querySelectorAll('[data-deactivate]').forEach(btn => {
       btn.onclick = async () => {
         const id = Number(btn.dataset.deactivate);
-        const result = await window.Api.apiRequest(`/companies/deactivate/${id}`, { method: 'DELETE' });
-        window.App.setDebug('debugPanel', result);
+        const deactivateResult = await window.Api.apiRequest(`/companies/deactivate/${id}`, { method: 'DELETE' });
+        window.App.setDebug('debugPanel', deactivateResult);
+        await loadCompanies();
+      };
+    });
+
+    document.querySelectorAll('[data-delete]').forEach(btn => {
+      btn.onclick = async () => {
+        const id = Number(btn.dataset.delete);
+        const deleteResult = await window.Api.apiRequest(`/companies/${id}`, { method: 'DELETE' });
+        window.App.setDebug('debugPanel', deleteResult);
         await loadCompanies();
       };
     });
