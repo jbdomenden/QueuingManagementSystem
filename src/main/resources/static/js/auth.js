@@ -27,7 +27,7 @@
     }
 
     if (!result.ok || !result.data || !result.data.result || !result.data.result.Access) {
-      message.textContent = (result.data && result.data.result && result.data.result.Message) || 'Login failed';
+      message.textContent = (result.data && result.data.result && (result.data.result.Status || result.data.result.Message)) || 'Login failed';
       return;
     }
 

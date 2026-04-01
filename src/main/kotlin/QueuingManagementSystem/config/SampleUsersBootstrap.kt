@@ -8,16 +8,18 @@ object SampleUsersBootstrap {
 
     fun bootstrap() {
         ConnectionPoolManager.getConnection().use { connection ->
-            val hasRows = connection.prepareStatement("SELECT 1 FROM queue_users LIMIT 1").use { statement ->
-                statement.executeQuery().use { rs -> rs.next() }
-            }
-            if (hasRows) return
-
             connection.prepareStatement(
                 """
                 INSERT INTO queue_users(email, password_hash, role, full_name, is_active, force_password_change)
                 VALUES (?, ?, ?, ?, true, true)
-                ON CONFLICT (email) DO NOTHING
+                ON CONFLICT (email)
+                DO UPDATE SET
+                    password_hash = EXCLUDED.password_hash,
+                    role = EXCLUDED.role,
+                    full_name = EXCLUDED.full_name,
+                    is_active = true,
+                    force_password_change = true,
+                    updated_at = NOW()
                 """.trimIndent()
             ).use { statement ->
                 statement.setString(1, "superadmin@qms.local")
@@ -26,7 +28,7 @@ object SampleUsersBootstrap {
                 statement.setString(4, "Super Admin")
                 statement.executeUpdate()
             }
-            logger.info("Seeded local superadmin account")
+            logger.info("Ensured local superadmin account is present and active")
         }
     }
 }
