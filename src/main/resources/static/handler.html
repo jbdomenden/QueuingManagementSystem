@@ -10,47 +10,55 @@
   <div id="topNav" class="topbar"></div>
   <div class="container">
     <div class="grid">
-      <div class="col-4 card">
-        <h3>Session</h3>
-        <label>Department ID (for live counters)</label>
-        <input id="departmentId" type="number" />
-        <label>Handler ID</label>
-        <input id="handlerId" type="number" />
-        <label>Window ID</label>
-        <input id="windowId" type="number" />
-        <button id="startSessionBtn" class="success">Start Session</button>
-        <button id="endSessionBtn" class="danger">End Session</button>
-        <h4>Active Session</h4>
-        <pre id="activeSession">{}</pre>
+      <div class="col-12 card">
+        <h3>Handler Queue Dashboard</h3>
+        <p class="small">Select a queued ticket, review details, then click <strong>Call Selected</strong>.</p>
+        <div id="handlerSummary" class="inline"></div>
+      </div>
+
+      <div class="col-8 card">
+        <h3>All Queued Tickets (Current Window)</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Ticket #</th>
+                <th>Crew ID</th>
+                <th>Name</th>
+                <th>Queue Type</th>
+                <th>Status</th>
+                <th>Queued</th>
+              </tr>
+            </thead>
+            <tbody id="queuedTicketsBody"></tbody>
+          </table>
+        </div>
       </div>
 
       <div class="col-4 card">
-        <h3>Ticket Lifecycle</h3>
-        <button id="callNextBtn">Call Next</button>
+        <h3>Selected Ticket Information</h3>
+        <div id="activeTicket"><em>Select a ticket from the table.</em></div>
+        <button id="callSelectedBtn" disabled>Call Selected</button>
         <label>Notes</label>
         <textarea id="notes"></textarea>
         <button id="startServiceBtn" class="success">Start Service</button>
-        <button id="skipBtn" class="warn">Skip</button>
+        <button id="holdBtn" class="warn">On-Hold</button>
+        <button id="noShowBtn" class="warn">No Show</button>
         <button id="recallBtn" class="secondary">Recall</button>
         <button id="completeBtn" class="success">Complete</button>
       </div>
 
-      <div class="col-4 card">
-        <h3>Current Active Ticket</h3>
-        <div id="activeTicket"><em>No active ticket selected</em></div>
-      </div>
-
-      <div class="col-12 card">
-        <h3>Live Counters (Polling)</h3>
-        <div id="liveCounters"></div>
+      <div class="col-6 card">
+        <h3>Current Active Session</h3>
+        <pre id="activeSession">{}</pre>
       </div>
 
       <div class="col-6 card">
-        <h3>Handler WebSocket Events</h3>
+        <h3>WebSocket Events</h3>
         <pre id="wsEvents"></pre>
       </div>
 
-      <div class="col-6 card">
+      <div class="col-12 card">
         <h3>Debug</h3>
         <pre id="debugPanel">{}</pre>
       </div>
