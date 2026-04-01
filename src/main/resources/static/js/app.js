@@ -8,6 +8,7 @@
       ['dashboard.html', 'Dashboard'],
       ['kiosk.html', 'Kiosk'],
       ['handler.html', 'Handler'],
+      ['superadmin-dashboard.html', 'Super Admin Dashboard'],
       ['admin.html', 'Admin'],
       ['users.html', 'User Management'],
       ['assets.html', 'Asset Management'],

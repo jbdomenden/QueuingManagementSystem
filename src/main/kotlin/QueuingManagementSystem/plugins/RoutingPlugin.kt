@@ -4,6 +4,7 @@ import QueuingManagementSystem.routes.areaRoutes
 import QueuingManagementSystem.routes.auditRoutes
 import QueuingManagementSystem.routes.authRoutes
 import QueuingManagementSystem.routes.departmentRoutes
+import QueuingManagementSystem.routes.dashboardRoutes
 import QueuingManagementSystem.routes.companyRoutes
 import QueuingManagementSystem.routes.companyTransactionRoutes
 import QueuingManagementSystem.routes.crewValidationRoutes
@@ -68,6 +69,7 @@ fun Application.configureRouting() {
         staffAuthRoutes()
         staffAccessRoutes()
         sessionRoutes()
+        dashboardRoutes()
         departmentRoutes()
         companyRoutes()
         companyTransactionRoutes()

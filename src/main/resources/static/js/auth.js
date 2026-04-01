@@ -42,7 +42,9 @@
       permissions: principal.permissions || []
     });
 
-    if (principal.role === 'SUPER_ADMIN' || (principal.permissions||[]).includes('USER_MANAGEMENT_VIEW')) {
+    if (principal.role === 'SUPER_ADMIN') {
+      location.href = '/superadmin-dashboard.html';
+    } else if ((principal.permissions||[]).includes('USER_MANAGEMENT_VIEW')) {
       location.href = '/users.html';
     } else if (principal.role === 'DEPARTMENT_ADMIN') {
       location.href = '/admin.html';
