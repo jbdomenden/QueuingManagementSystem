@@ -12,6 +12,7 @@ import QueuingManagementSystem.auth.providers.LocalAuthProvider
 import QueuingManagementSystem.auth.providers.LocalDeviceAuthProvider
 import QueuingManagementSystem.auth.providers.LocalPermissionProvider
 import QueuingManagementSystem.auth.providers.LocalUserContextProvider
+import QueuingManagementSystem.config.DatabaseSchemaInitializer
 import QueuingManagementSystem.config.ProviderRegistry
 
 fun main(args: Array<String>) {
@@ -23,6 +24,9 @@ fun Application.module() {
     val postgresUser = environment.config.property("postgres.user").getString()
     val postgresPassword = environment.config.property("postgres.password").getString()
     ConnectionPoolManager.configure(postgresUrl, postgresUser, postgresPassword)
+
+    // 1) schema initialization (fail-fast)
+    DatabaseSchemaInitializer.initialize()
 
     val appMode = System.getenv("APP_MODE") ?: "local"
     val authProviderKey = (System.getenv("AUTH_PROVIDER") ?: "local").lowercase()
@@ -43,15 +47,14 @@ fun Application.module() {
     ProviderRegistry.permissionProvider = LocalPermissionProvider()
     ProviderRegistry.deviceAuthProvider = LocalDeviceAuthProvider()
 
+    // 2) seed users after schema success
+    SampleUsersBootstrap.bootstrap()
+    authService.bootstrapIfEmpty()
+
+    // 3) normal app startup
     configureSerialization()
     configureSockets()
     configureRouting()
-
-    runCatching { SampleUsersBootstrap.bootstrap() }
-        .onFailure { println("SampleUsersBootstrap skipped: ${it.message}") }
-
-    runCatching { authService.bootstrapIfEmpty() }
-        .onFailure { println("Staff auth bootstrap skipped: ${it.message}") }
 
     println("QMS started in APP_MODE=$appMode AUTH_PROVIDER=$authProviderKey")
 }
