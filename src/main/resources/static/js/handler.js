@@ -2,61 +2,121 @@
   if (!window.App.ensureLoggedIn()) return;
   window.App.renderNav('handler.html');
 
-  const auth = window.StorageHelper.getAuth();
-  const departmentIdInput = document.getElementById('departmentId');
-  const handlerIdInput = document.getElementById('handlerId');
-  const windowIdInput = document.getElementById('windowId');
-  const liveCountersEl = document.getElementById('liveCounters');
-  const activeSessionEl = document.getElementById('activeSession');
+  const queuedBody = document.getElementById('queuedTicketsBody');
   const activeTicketEl = document.getElementById('activeTicket');
+  const activeSessionEl = document.getElementById('activeSession');
   const wsEvents = document.getElementById('wsEvents');
+  const callSelectedBtn = document.getElementById('callSelectedBtn');
+  const handlerSummary = document.getElementById('handlerSummary');
+
   let currentTicket = null;
+  let queuedTickets = [];
+  let handlerContext = null;
   let ws = null;
 
-  departmentIdInput.value = auth.department_id || '';
-
-  async function refreshLiveCounters() {
-    const departmentId = Number(departmentIdInput.value || 0);
-    if (!departmentId) return;
-    const result = await window.Api.apiRequest(`/tickets/live/${departmentId}`);
-    window.App.setDebug('debugPanel', result);
-
-    const rows = (result.data && result.data.Data) || [];
-    const count = (status) => rows.filter(x => x.status === status).length;
-
-    liveCountersEl.innerHTML = `
-      <div class="inline">
-        <div class="card"><div class="small">WAITING</div><div class="kpi">${count('WAITING')}</div></div>
-        <div class="card"><div class="small">CALLED</div><div class="kpi">${count('CALLED')}</div></div>
-        <div class="card"><div class="small">IN_SERVICE</div><div class="kpi">${count('IN_SERVICE')}</div></div>
-        <div class="card"><div class="small">SKIPPED</div><div class="kpi">${count('SKIPPED')}</div></div>
-        <div class="card"><div class="small">COMPLETED</div><div class="kpi">${count('COMPLETED')}</div></div>
-      </div>
+  function renderSummary(metrics) {
+    if (!handlerSummary) return;
+    handlerSummary.innerHTML = `
+      <div class="card"><div class="small">WAITING</div><div class="kpi">${metrics.waiting_count || 0}</div></div>
+      <div class="card"><div class="small">CALLED</div><div class="kpi">${metrics.called_count || 0}</div></div>
+      <div class="card"><div class="small">IN SERVICE</div><div class="kpi">${metrics.serving_count || 0}</div></div>
+      <div class="card"><div class="small">ON-HOLD</div><div class="kpi">${metrics.hold_count || 0}</div></div>
+      <div class="card"><div class="small">NO SHOW</div><div class="kpi">${metrics.no_show_count || 0}</div></div>
+      <div class="card"><div class="small">COMPLETED</div><div class="kpi">${metrics.completed_count || 0}</div></div>
     `;
   }
 
-  function renderCurrentTicket() {
+  function renderSelectedTicket() {
     if (!currentTicket) {
-      activeTicketEl.innerHTML = '<em>No active ticket selected</em>';
+      activeTicketEl.innerHTML = '<em>Select a ticket from the table.</em>';
+      callSelectedBtn.disabled = true;
       return;
     }
+
     activeTicketEl.innerHTML = `
-      <p><strong>ID:</strong> ${currentTicket.id}</p>
-      <p><strong>Number:</strong> ${currentTicket.ticket_number}</p>
+      <p><strong>Ticket #:</strong> ${currentTicket.ticket_number}</p>
+      <p><strong>Name:</strong> ${currentTicket.crew_name || '-'}</p>
+      <p><strong>Crew ID:</strong> ${currentTicket.crew_identifier || '-'}</p>
       <p><strong>Status:</strong> ${window.Utils.statusBadge(currentTicket.status)}</p>
-      <p><strong>Created:</strong> ${window.Utils.formatDateTime(currentTicket.created_at)}</p>
-      <p><strong>Called:</strong> ${window.Utils.formatDateTime(currentTicket.called_at || '')}</p>
-      <p><strong>Completed:</strong> ${window.Utils.formatDateTime(currentTicket.completed_at || '')}</p>
+      <p><strong>Queue Type ID:</strong> ${currentTicket.queue_type_id}</p>
+      <p><strong>Queued At:</strong> ${window.Utils.formatDateTime(currentTicket.created_at)}</p>
     `;
+    callSelectedBtn.disabled = currentTicket.status !== 'WAITING';
+  }
+
+  function renderQueueTable() {
+    if (!queuedBody) return;
+    if (!queuedTickets.length) {
+      queuedBody.innerHTML = '<tr><td colspan="6"><em>No queued tickets available for this window.</em></td></tr>';
+      return;
+    }
+
+    queuedBody.innerHTML = queuedTickets.map((ticket) => {
+      const selectedClass = currentTicket && currentTicket.id === ticket.id ? 'ticket-selected' : '';
+      return `
+        <tr class="ticket-row ${selectedClass}" data-ticket-id="${ticket.id}">
+          <td>${ticket.ticket_number}</td>
+          <td>${ticket.crew_identifier || '-'}</td>
+          <td>${ticket.crew_name || '-'}</td>
+          <td>${ticket.queue_type_id}</td>
+          <td>${window.Utils.statusBadge(ticket.status)}</td>
+          <td>${window.Utils.formatDateTime(ticket.created_at)}</td>
+        </tr>
+      `;
+    }).join('');
+
+    queuedBody.querySelectorAll('tr.ticket-row').forEach((row) => {
+      row.addEventListener('click', () => {
+        const id = Number(row.dataset.ticketId);
+        currentTicket = queuedTickets.find((t) => t.id === id) || null;
+        renderQueueTable();
+        renderSelectedTicket();
+      });
+    });
+  }
+
+  async function refreshContext() {
+    const contextResult = await window.Api.apiRequest('/tickets/handler/context');
+    window.App.setDebug('debugPanel', contextResult);
+    if (!contextResult.ok || !contextResult.data || !contextResult.data.result || !contextResult.data.result.Access) {
+      activeSessionEl.textContent = window.Utils.toPrettyJson(contextResult.data || {});
+      return false;
+    }
+
+    handlerContext = contextResult.data;
+    activeSessionEl.textContent = window.Utils.toPrettyJson(handlerContext);
+    if (handlerContext.active_ticket) {
+      currentTicket = handlerContext.active_ticket;
+    }
+    return true;
+  }
+
+  async function refreshQueue() {
+    const result = await window.Api.apiRequest('/tickets/handler/queue');
+    if (!result.ok || !result.data || !result.data.Data) return;
+    queuedTickets = result.data.Data;
+
+    if (currentTicket) {
+      const stillExists = queuedTickets.some((t) => t.id === currentTicket.id);
+      if (!stillExists && currentTicket.status === 'WAITING') {
+        currentTicket = null;
+      }
+    }
+
+    renderQueueTable();
+    renderSelectedTicket();
+  }
+
+  async function refreshMetrics() {
+    const result = await window.Api.apiRequest('/tickets/handler/dashboard');
+    if (result.ok && result.data) renderSummary(result.data);
   }
 
   function connectHandlerSocket() {
+    if (!handlerContext || !handlerContext.handler_id || !handlerContext.window_id) return;
     if (ws) ws.close();
-    const handlerId = Number(handlerIdInput.value || 0);
-    const windowId = Number(windowIdInput.value || 0);
-    if (!handlerId || !windowId) return;
 
-    ws = window.WS.connectWebSocket(`/realtime/ws/handler/${handlerId}?windowId=${windowId}`, {
+    ws = window.WS.connectWebSocket(`/realtime/ws/handler/${handlerContext.handler_id}?windowId=${handlerContext.window_id}`, {
       onOpen: () => { wsEvents.textContent = 'WebSocket connected\n'; },
       onMessage: (msg) => {
         wsEvents.textContent += `${new Date().toISOString()} ${window.Utils.toPrettyJson(msg)}\n`;
@@ -65,51 +125,49 @@
     });
   }
 
-  document.getElementById('startSessionBtn').onclick = async () => {
-    const payload = { handler_id: Number(handlerIdInput.value), window_id: Number(windowIdInput.value) };
-    const result = await window.Api.apiRequest('/handlers/start-session', { method: 'POST', body: JSON.stringify(payload) });
-    window.App.setDebug('debugPanel', result);
-    activeSessionEl.textContent = window.Utils.toPrettyJson(result.data);
-    connectHandlerSocket();
-  };
-
-  document.getElementById('endSessionBtn').onclick = async () => {
-    const payload = { handler_id: Number(handlerIdInput.value), window_id: Number(windowIdInput.value) };
-    const result = await window.Api.apiRequest('/handlers/end-session', { method: 'POST', body: JSON.stringify(payload) });
-    window.App.setDebug('debugPanel', result);
-    activeSessionEl.textContent = window.Utils.toPrettyJson(result.data);
-    if (ws) ws.close();
-  };
-
-  document.getElementById('callNextBtn').onclick = async () => {
-    const payload = { handler_id: Number(handlerIdInput.value) };
-    const result = await window.Api.apiRequest('/tickets/call-next', { method: 'POST', body: JSON.stringify(payload) });
-    window.App.setDebug('debugPanel', result);
-    currentTicket = result.data;
-    renderCurrentTicket();
-    refreshLiveCounters();
-  };
-
   async function ticketAction(path) {
     if (!currentTicket || !currentTicket.id) {
-      alert('Call next first or set an active ticket.');
+      alert('Select or call a ticket first.');
       return;
     }
+
     const payload = {
-      handler_id: Number(handlerIdInput.value),
+      handler_id: handlerContext ? handlerContext.handler_id : 0,
       ticket_id: Number(currentTicket.id),
-      notes: document.getElementById('notes').value || null
+      reason: (document.getElementById('notes').value || '').trim() || null
     };
+
     const result = await window.Api.apiRequest(path, { method: 'POST', body: JSON.stringify(payload) });
     window.App.setDebug('debugPanel', result);
-    await refreshLiveCounters();
+
+    if (result.ok && result.data && result.data.ticket) {
+      currentTicket = result.data.ticket;
+    }
+
+    await refreshQueue();
+    await refreshMetrics();
+    renderSelectedTicket();
   }
 
-  document.getElementById('startServiceBtn').onclick = () => ticketAction('/tickets/start-service');
-  document.getElementById('skipBtn').onclick = () => ticketAction('/tickets/skip');
-  document.getElementById('recallBtn').onclick = () => ticketAction('/tickets/recall');
-  document.getElementById('completeBtn').onclick = () => ticketAction('/tickets/complete');
+  callSelectedBtn.onclick = () => ticketAction('/tickets/handler/call');
+  document.getElementById('startServiceBtn').onclick = () => ticketAction('/tickets/handler/start-service');
+  document.getElementById('holdBtn').onclick = () => ticketAction('/tickets/handler/hold');
+  document.getElementById('noShowBtn').onclick = () => ticketAction('/tickets/handler/no-show');
+  document.getElementById('recallBtn').onclick = () => ticketAction('/tickets/handler/recall');
+  document.getElementById('completeBtn').onclick = () => ticketAction('/tickets/handler/complete');
 
-  refreshLiveCounters();
-  setInterval(refreshLiveCounters, 5000);
+  async function bootstrap() {
+    const ok = await refreshContext();
+    if (!ok) return;
+    connectHandlerSocket();
+    await refreshQueue();
+    await refreshMetrics();
+    renderSelectedTicket();
+  }
+
+  bootstrap();
+  setInterval(async () => {
+    await refreshQueue();
+    await refreshMetrics();
+  }, 5000);
 })();
