@@ -6,8 +6,12 @@ import QueuingManagementSystem.models.UserSessionModel
 
 enum class Role {
     SUPER_ADMIN,
-    DEPARTMENT_ADMIN,
+    COMPANY_ADMIN,
+    MANAGER,
     SUPERVISOR,
+    ACCOUNTING,
+    EMPLOYEE,
+    DEPARTMENT_ADMIN,
     MODERATOR,
     HANDLER
 }
@@ -15,9 +19,14 @@ enum class Role {
 private val ROLE_ALIASES: Map<String, Role> = mapOf(
     "SUPERADMIN" to Role.SUPER_ADMIN,
     "SUPER_ADMIN" to Role.SUPER_ADMIN,
+    "COMPANYADMIN" to Role.COMPANY_ADMIN,
+    "COMPANY_ADMIN" to Role.COMPANY_ADMIN,
+    "MANAGER" to Role.MANAGER,
+    "SUPERVISOR" to Role.SUPERVISOR,
+    "ACCOUNTING" to Role.ACCOUNTING,
+    "EMPLOYEE" to Role.EMPLOYEE,
     "DEPARTMENTADMIN" to Role.DEPARTMENT_ADMIN,
     "DEPARTMENT_ADMIN" to Role.DEPARTMENT_ADMIN,
-    "SUPERVISOR" to Role.SUPERVISOR,
     "MODERATOR" to Role.MODERATOR,
     "HANDLER" to Role.HANDLER
 )

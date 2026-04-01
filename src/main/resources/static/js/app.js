@@ -3,12 +3,12 @@
     { key: 'DASHBOARD', label: 'Dashboard', route: '/superadmin-dashboard.html', icon: '🏠', superOnly: true },
     { key: 'USER_MANAGEMENT', label: 'User Management', route: '/users.html', icon: '👤', access: 'USER_MANAGEMENT_VIEW' },
     { key: 'ASSET_MANAGEMENT', label: 'Asset Management', route: '/assets.html', icon: '🖥️', access: 'ASSET_MANAGEMENT_VIEW' },
-    { key: 'COMPANIES', label: 'Companies', route: '/companies.html', icon: '🏢' },
-    { key: 'COMPANY_TRANSACTIONS', label: 'Company Transactions', route: '/company-transactions.html', icon: '📋' },
-    { key: 'TRANSACTION_DESTINATIONS', label: 'Transaction Destinations', route: '/company-transaction-destinations.html', icon: '📍' },
-    { key: 'ADMIN', label: 'Admin', route: '/admin.html', icon: '🛠️' },
-    { key: 'HANDLER', label: 'Handler', route: '/handler.html', icon: '🎧' },
-    { key: 'ARCHIVED', label: 'Archived', route: '/archived.html', icon: '🗄️' }
+    { key: 'COMPANIES', label: 'Companies', route: '/companies.html', icon: '🏢', superOnly: true },
+    { key: 'COMPANY_TRANSACTIONS', label: 'Company Transactions', route: '/company-transactions.html', icon: '📋', superOnly: true },
+    { key: 'TRANSACTION_DESTINATIONS', label: 'Transaction Destinations', route: '/company-transaction-destinations.html', icon: '📍', superOnly: true },
+    { key: 'ADMIN', label: 'Admin', route: '/admin.html', icon: '🛠️', allowedRoles: ['SUPER_ADMIN','COMPANY_ADMIN','MANAGER','SUPERVISOR'] },
+    { key: 'HANDLER', label: 'Terminal', route: '/handler.html', icon: '🎧', allowedRoles: ['SUPER_ADMIN','COMPANY_ADMIN','MANAGER','SUPERVISOR','ACCOUNTING','EMPLOYEE'] },
+    { key: 'ARCHIVED', label: 'Archived', route: '/archived.html', icon: '🗄️', superOnly: true }
   ];
 
   function initials(name) {
@@ -19,8 +19,9 @@
   function canSeeModule(auth, module) {
     if (module.superOnly && auth.role !== 'SUPER_ADMIN') return false;
     if (auth.role === 'SUPER_ADMIN') return true;
+    if (module.allowedRoles && !module.allowedRoles.includes(auth.role)) return false;
     if (module.access) return (auth.permissions || []).includes(module.access);
-    return true;
+    return !!module.allowedRoles;
   }
 
   function removeDebugUi() {

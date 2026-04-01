@@ -36,6 +36,22 @@ fun Route.staffAccessRoutes() {
         return principal
     }
 
+
+    fun manageableRolesFor(role: String): Set<String> = when (role.uppercase()) {
+        "SUPER_ADMIN" -> setOf("SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER", "SUPERVISOR", "ACCOUNTING", "EMPLOYEE")
+        "COMPANY_ADMIN" -> setOf("MANAGER", "SUPERVISOR", "ACCOUNTING", "EMPLOYEE")
+        "MANAGER" -> setOf("SUPERVISOR", "ACCOUNTING", "EMPLOYEE")
+        "SUPERVISOR" -> setOf("EMPLOYEE")
+        else -> emptySet()
+    }
+
+    fun canManageRole(actorRole: String, targetRole: String): Boolean = manageableRolesFor(actorRole).contains(targetRole.uppercase())
+
+    fun sameCompanyOrSuper(actor: QueuingManagementSystem.auth.models.AuthPrincipal, companyId: Int?): Boolean {
+        if (normalizeRole(actor.role) == Role.SUPER_ADMIN) return true
+        return actor.companyId != null && companyId != null && actor.companyId == companyId
+    }
+
     route("/api/users") {
         get {
             requireAccess(AccessKey.USER_MANAGEMENT_VIEW) ?: return@get
@@ -52,8 +68,11 @@ fun Route.staffAccessRoutes() {
             val req = call.receive<UserCreateRequest>()
             if (!Regex("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$").matches(req.email)) return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid email"))
             if (!users.isValidRole(req.role)) return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid role"))
+            if (!canManageRole(actor.role, req.role)) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Role scope violation"))
+            val scopedCompanyId = if (normalizeRole(actor.role) == Role.SUPER_ADMIN) req.companyId else actor.companyId
+            if (!sameCompanyOrSuper(actor, scopedCompanyId)) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Company scope violation"))
             if (users.emailExists(req.email)) return@post call.respond(HttpStatusCode.Conflict, GlobalCredentialResponse(409, false, "Email already exists"))
-            val id = users.createUser(req)
+            val id = users.createUser(req.copy(companyId = scopedCompanyId))
             audit.createAuditLog(actor.userId, actor.departmentId, "USER_CREATED", "queue_users", id.toString(), "{}")
             call.respond(IdResponse(id, GlobalCredentialResponse(200, true, "User created")))
         }
@@ -62,7 +81,10 @@ fun Route.staffAccessRoutes() {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid id"))
             val req = call.receive<UserUpdateRequest>()
             if (!users.isValidRole(req.role)) return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid role"))
-            val ok = users.updateUser(id, req)
+            val target = users.getUserById(id) ?: return@put call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Not found"))
+            if (!sameCompanyOrSuper(actor, target.companyId)) return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Company scope violation"))
+            if (!canManageRole(actor.role, target.role) || !canManageRole(actor.role, req.role)) return@put call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Role scope violation"))
+            val ok = users.updateUser(id, req.copy(companyId = if (normalizeRole(actor.role) == Role.SUPER_ADMIN) req.companyId else actor.companyId))
             if (ok) audit.createAuditLog(actor.userId, actor.departmentId, "USER_UPDATED", "queue_users", id.toString(), "{}")
             call.respond(GlobalCredentialResponse(if (ok) 200 else 404, ok, if (ok) "Updated" else "Not found"))
         }
@@ -70,6 +92,8 @@ fun Route.staffAccessRoutes() {
             val actor = requireAccess(AccessKey.USER_MANAGEMENT_EDIT) ?: return@patch
             val id = call.parameters["id"]?.toIntOrNull() ?: return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid id"))
             val req = call.receive<UserStatusPatchRequest>()
+            val target = users.getUserById(id) ?: return@patch call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Not found"))
+            if (!sameCompanyOrSuper(actor, target.companyId) || !canManageRole(actor.role, target.role)) return@patch call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Scope violation"))
             val ok = users.updateStatus(id, req.isActive)
             if (ok) audit.createAuditLog(actor.userId, actor.departmentId, if (req.isActive) "USER_ACTIVATED" else "USER_DEACTIVATED", "queue_users", id.toString(), "{}")
             call.respond(GlobalCredentialResponse(if (ok) 200 else 404, ok, if (ok) "Updated" else "Not found"))
@@ -79,6 +103,8 @@ fun Route.staffAccessRoutes() {
             val id = call.parameters["id"]?.toIntOrNull() ?: return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid id"))
             val req = call.receive<UserRolePatchRequest>()
             if (!users.isValidRole(req.role)) return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid role"))
+            val target = users.getUserById(id) ?: return@patch call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Not found"))
+            if (!sameCompanyOrSuper(actor, target.companyId) || !canManageRole(actor.role, target.role) || !canManageRole(actor.role, req.role)) return@patch call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Scope violation"))
             val ok = users.updateRole(id, req.role)
             if (ok) audit.createAuditLog(actor.userId, actor.departmentId, "USER_ROLE_CHANGED", "queue_users", id.toString(), "{}")
             call.respond(GlobalCredentialResponse(if (ok) 200 else 404, ok, if (ok) "Updated" else "Not found"))
@@ -87,6 +113,8 @@ fun Route.staffAccessRoutes() {
             val actor = requireAccess(AccessKey.USER_MANAGEMENT_ASSIGN_ACCESS) ?: return@patch
             val id = call.parameters["id"]?.toIntOrNull() ?: return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid id"))
             val req = call.receive<UserAccessPatchRequest>()
+            val target = users.getUserById(id) ?: return@patch call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Not found"))
+            if (!sameCompanyOrSuper(actor, target.companyId) || !canManageRole(actor.role, target.role)) return@patch call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Scope violation"))
             val invalid = req.access.firstOrNull { !users.isValidAccessKey(it.accessKey) }
             if (invalid != null) return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid access key: ${invalid.accessKey}"))
             val ok = users.updateAccess(id, req.access)
@@ -97,6 +125,8 @@ fun Route.staffAccessRoutes() {
             val actor = requireAccess(AccessKey.USER_MANAGEMENT_EDIT) ?: return@post
             val id = call.parameters["id"]?.toIntOrNull() ?: return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "Invalid id"))
             val req = call.receive<ResetPasswordRequest>()
+            val target = users.getUserById(id) ?: return@post call.respond(HttpStatusCode.NotFound, GlobalCredentialResponse(404, false, "Not found"))
+            if (!sameCompanyOrSuper(actor, target.companyId) || !canManageRole(actor.role, target.role)) return@post call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Scope violation"))
             val temp = users.resetPassword(id, req.password)
             audit.createAuditLog(actor.userId, actor.departmentId, "USER_PASSWORD_RESET", "queue_users", id.toString(), "{}")
             call.respond(ResetPasswordResponse(temp, GlobalCredentialResponse(200, true, "Password reset")))

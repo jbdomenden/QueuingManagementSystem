@@ -167,6 +167,6 @@ class StaffAccessController {
         return (1..length).joinToString("") { chars[random.nextInt(chars.length)].toString() }
     }
 
-    fun isValidRole(role: String): Boolean = setOf("SUPER_ADMIN", "DEPARTMENT_ADMIN", "SUPERVISOR", "MODERATOR", "HANDLER").contains(role)
+    fun isValidRole(role: String): Boolean = setOf("SUPER_ADMIN", "COMPANY_ADMIN", "MANAGER", "SUPERVISOR", "ACCOUNTING", "EMPLOYEE").contains(role)
     fun isValidAccessKey(key: String): Boolean = ALL_ACCESS_KEYS.contains(key)
 }

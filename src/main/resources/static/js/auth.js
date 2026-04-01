@@ -38,7 +38,7 @@
       location.href = '/users.html';
     } else if (principal.role === 'DEPARTMENT_ADMIN') {
       location.href = '/admin.html';
-    } else if (principal.role === 'HANDLER') {
+    } else if (['ACCOUNTING','EMPLOYEE','HANDLER'].includes(principal.role)) {
       location.href = '/handler.html';
     } else {
       location.href = '/dashboard.html';
