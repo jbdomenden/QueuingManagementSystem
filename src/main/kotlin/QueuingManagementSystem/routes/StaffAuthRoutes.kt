@@ -3,6 +3,8 @@ package QueuingManagementSystem.routes
 import QueuingManagementSystem.models.GlobalCredentialResponse
 import QueuingManagementSystem.auth.models.StaffLoginRequest
 import QueuingManagementSystem.auth.models.StaffChangePasswordRequest
+import QueuingManagementSystem.auth.models.StaffLoginResponsePayload
+import QueuingManagementSystem.auth.models.StaffMeResponsePayload
 import QueuingManagementSystem.config.ProviderRegistry
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.request.receive
@@ -28,13 +30,15 @@ fun Route.staffAuthRoutes() {
                         return@post call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "email and password are required"))
                     }
                     val result = ProviderRegistry.authProvider.login(request.email, request.password)
-                    val payload = mapOf(
-                        "token" to result.token,
-                        "forcePasswordChange" to result.forcePasswordChange,
-                        "principal" to result.principal,
-                        "result" to GlobalCredentialResponse(if (result.success) 200 else 401, result.success, result.message)
+                    call.respond(
+                        if (result.success) HttpStatusCode.OK else HttpStatusCode.Unauthorized,
+                        StaffLoginResponsePayload(
+                            token = result.token,
+                            forcePasswordChange = result.forcePasswordChange,
+                            principal = result.principal,
+                            result = GlobalCredentialResponse(if (result.success) 200 else 401, result.success, result.message)
+                        )
                     )
-                    call.respond(if (result.success) HttpStatusCode.OK else HttpStatusCode.Unauthorized, payload)
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
                 }
@@ -70,7 +74,14 @@ fun Route.staffAuthRoutes() {
 
                 val principal = ProviderRegistry.userContextProvider.getCurrentUser(token)
                     ?: return@get call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
-                call.respond(HttpStatusCode.OK, mapOf("principal" to principal, "result" to GlobalCredentialResponse(200, true, "OK")))
+                call.respond(
+                    HttpStatusCode.OK,
+                    StaffMeResponsePayload(
+                        principal = principal,
+                        forcePasswordChange = false,
+                        result = GlobalCredentialResponse(200, true, "OK")
+                    )
+                )
             }
         }
     }
