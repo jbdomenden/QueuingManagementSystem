@@ -13,14 +13,13 @@
   const crewIdentifierDisplay = document.getElementById('crewIdentifierDisplay');
   const rfidCaptureInput = document.getElementById('rfidCaptureInput');
   const crewGreetingLine = document.getElementById('crewGreetingLine');
+  const kioskTitle = document.getElementById('kioskTitle');
 
   const queueTypeSelect = document.getElementById('queueTypeId');
   const selectedTransactionTitle = document.getElementById('selectedTransactionTitle');
   const createBtn = document.getElementById('createTicketBtn');
   const printable = document.getElementById('printablePanel');
   const printBtn = document.getElementById('printBtn');
-  const queueSection = document.getElementById('queueSection');
-  const selectedCompanyTitle = document.getElementById('selectedCompanyTitle');
 
   let selectedCompany = null;
   let selectedTransaction = null;
@@ -31,7 +30,9 @@
 
   function updateDateTime() {
     const now = new Date();
-    document.getElementById('liveDate').textContent = now.toLocaleDateString();
+    document.getElementById('liveDate').textContent = now.toLocaleDateString(undefined, {
+      month: 'short', day: '2-digit', year: 'numeric'
+    });
     document.getElementById('liveTime').textContent = now.toLocaleTimeString();
   }
 
@@ -55,13 +56,13 @@
     selectedTransaction = null;
     selectedDestination = null;
     crewValidation = null;
-    selectedCompanyBadge.innerHTML = '&nbsp;';
+    selectedCompanyBadge.textContent = '';
     setStage('company');
   }
 
   function setupKeypad() {
     const keypadGrid = document.getElementById('keypadGrid');
-    keypadGrid.innerHTML = [1,2,3,4,5,6,7,8,9,0].map(n => `<button class="keypad-key" data-key="${n}">${n}</button>`).join('');
+    keypadGrid.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(n => `<button class="keypad-key" data-key="${n}">${n}</button>`).join('');
     document.querySelectorAll('.keypad-key').forEach(btn => {
       btn.onclick = () => {
         if (selectedTransaction && selectedTransaction.inputMode === 'RFID') return;
@@ -102,7 +103,6 @@
         identifierType
       })
     });
-    window.App.setDebug('debugPanel', result);
 
     if (!result.data || !result.data.success) {
       crewStatusMessage.textContent = (result.data && result.data.message) || 'Validation failed';
@@ -120,22 +120,27 @@
 
   async function loadCompanies() {
     const result = await window.Api.apiRequest('/companies/kiosk');
-    window.App.setDebug('debugPanel', result);
-    const rows = (result.data && result.data.data) || [];
-    renderCompanyTiles(rows);
+    const board = (result.data && result.data.data) || { title: 'QUEUING SYSTEM', companies: [] };
+    kioskTitle.textContent = board.title || 'QUEUING SYSTEM';
+    renderCompanyTiles(board.companies || []);
   }
 
   function renderCompanyTiles(companies) {
-    const bigGrid = document.getElementById('companyBigGrid');
-    const smallGrid = document.getElementById('companySmallGrid');
-    const toCard = (company, sizeClass) => `
-      <button class="company-card ${sizeClass}" data-company-id="${company.id}" data-company-name="${company.companyShortName}">
-        <span class="short-name">${company.companyShortName}</span>
-        <span class="full-name">${company.companyFullName}</span>
-      </button>
-    `;
-    bigGrid.innerHTML = companies.filter(x => x.displaySize === 'BIG').map(x => toCard(x, 'big')).join('');
-    smallGrid.innerHTML = companies.filter(x => x.displaySize === 'SMALL').map(x => toCard(x, 'small')).join('');
+    const grid = document.getElementById('companyGrid');
+    const sorted = [...companies].sort((a, b) => {
+      if (a.displayOrder !== b.displayOrder) return a.displayOrder - b.displayOrder;
+      return (a.companyCode || '').localeCompare(b.companyCode || '');
+    });
+
+    grid.innerHTML = sorted.map(company => {
+      const cardType = company.cardSizeType === 'BIG' ? 'big' : 'small';
+      return `
+        <button class="company-card ${cardType}" data-company-id="${company.id}" data-company-name="${company.companyName}">
+          <span class="company-card-code">${company.companyCode}</span>
+          <span class="company-card-subtitle">(${company.companyDescription || company.companyName})</span>
+        </button>
+      `;
+    }).join('');
 
     document.querySelectorAll('.company-card').forEach(btn => {
       btn.onclick = async () => {
@@ -149,7 +154,6 @@
 
   async function loadTransactionsByCompany(companyId) {
     const result = await window.Api.apiRequest(`/company-transactions/kiosk/company/${companyId}`);
-    window.App.setDebug('debugPanel', result);
     const rows = (result.data && result.data.data) || [];
     transactionButtons.innerHTML = rows.map(t => `
       <button class="transaction-btn" data-json='${JSON.stringify(t)}'>
@@ -177,7 +181,6 @@
 
   async function loadDestinations() {
     const result = await window.Api.apiRequest(`/company-transaction-destinations/kiosk/company-transaction/${selectedTransaction.id}`);
-    window.App.setDebug('debugPanel', result);
     const rows = (result.data && result.data.data) || [];
 
     setStage('destination');
@@ -206,7 +209,6 @@
 
   async function loadQueueTypesByCompany(companyId, title) {
     const result = await window.Api.apiRequest(`/queue-types/company/${companyId}`);
-    window.App.setDebug('debugPanel', result);
     queueTypesForCompany = (result.data && result.data.data) || [];
     selectedTransactionTitle.textContent = `Queue Types - ${title}`;
     queueTypeSelect.innerHTML = queueTypesForCompany.map(x => `<option value="${x.id}" data-kiosk-id="${x.kiosk_id || ''}">${x.name} (${x.prefix})</option>`).join('');
@@ -234,8 +236,6 @@
     };
 
     const result = await window.Api.apiRequest('/tickets/create', { method: 'POST', body: JSON.stringify(request) });
-    window.App.setDebug('debugPanel', result);
-
     const printableTicket = (result.data && result.data.printableTicket) || {};
     printable.innerHTML = `
       <div class="ticket-highlight">
@@ -263,7 +263,7 @@
   document.getElementById('homeBtn').onclick = () => resetToCompanySelection();
   document.getElementById('refreshBtn').onclick = async () => {
     if (currentStage === 'company') return loadCompanies();
-    if (currentStage === 'transaction') return loadTransactionsByCompany(selectedCompany.id);
+    if (currentStage === 'transaction' && selectedCompany) return loadTransactionsByCompany(selectedCompany.id);
     if (currentStage === 'destination') return loadDestinations();
   };
   printBtn.onclick = () => window.print();
