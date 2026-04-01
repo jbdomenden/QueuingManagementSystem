@@ -131,6 +131,39 @@ CREATE TABLE IF NOT EXISTS queue_devices (
 
 CREATE INDEX IF NOT EXISTS idx_queue_devices_key ON queue_devices(device_key);
 
+
+CREATE TABLE IF NOT EXISTS user_access (
+    id SERIAL PRIMARY KEY,
+    user_id INT NOT NULL REFERENCES queue_users(id) ON DELETE CASCADE,
+    access_key VARCHAR(100) NOT NULL,
+    is_allowed BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    UNIQUE(user_id, access_key)
+);
+
+CREATE TABLE IF NOT EXISTS assets (
+    id SERIAL PRIMARY KEY,
+    asset_tag VARCHAR(100) NOT NULL UNIQUE,
+    asset_name VARCHAR(255) NOT NULL,
+    asset_type VARCHAR(20) NOT NULL CHECK (asset_type IN ('KIOSK', 'DISPLAY')),
+    device_key VARCHAR(255) UNIQUE,
+    ip_address VARCHAR(64) NULL,
+    mac_address VARCHAR(64) NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('ACTIVE', 'INACTIVE', 'MAINTENANCE', 'RETIRED')),
+    assigned_department_id INT NULL REFERENCES departments(id),
+    assigned_company_id INT NULL REFERENCES companies(id),
+    location VARCHAR(255) NULL,
+    notes TEXT NULL,
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    CONSTRAINT assets_device_key_required CHECK (
+      (asset_type IN ('KIOSK','DISPLAY') AND device_key IS NOT NULL AND length(trim(device_key)) > 0)
+    )
+);
+
+CREATE INDEX IF NOT EXISTS idx_assets_device_key ON assets(device_key);
+
 CREATE TABLE IF NOT EXISTS queue_types (
     id SERIAL PRIMARY KEY,
     department_id INT NOT NULL REFERENCES departments(id),
