@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QMS Kiosk Transactions</title>
+  <link rel="stylesheet" href="/css/app.css" />
+</head>
+<body class="kiosk-body">
+  <div class="kiosk-page kiosk-transaction-page">
+    <header class="kiosk-header kiosk-header-triple">
+      <div id="selectedCompanyHeader" class="kiosk-header-left">-</div>
+      <h1 id="kioskTitle">QUEUING SYSTEM</h1>
+      <div class="kiosk-clock">
+        <div id="liveDate"></div>
+        <div id="liveTime"></div>
+      </div>
+    </header>
+
+    <main class="kiosk-main transaction-screen-main">
+      <div id="transactionButtons" class="transaction-list transaction-list-centered"></div>
+    </main>
+
+    <footer class="kiosk-footer kiosk-footer-layout">
+      <div class="kiosk-footer-left">
+        <button id="backBtn" class="kiosk-icon-btn" aria-label="Back">←<span>Back</span></button>
+        <button id="refreshBtn" class="kiosk-icon-btn" aria-label="Refresh">↻<span>Refresh</span></button>
+      </div>
+      <p class="kiosk-instruction">Please select your transaction</p>
+      <div class="kiosk-footer-right">
+        <button id="homeBtn" class="kiosk-icon-btn" aria-label="Home">⌂<span>Home</span></button>
+      </div>
+    </footer>
+  </div>
+
+  <script src="/js/storage.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/js/api.js"></script>
+  <script src="/js/kiosk-transactions.js"></script>
+</body>
+</html>
