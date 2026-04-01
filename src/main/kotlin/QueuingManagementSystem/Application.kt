@@ -5,7 +5,7 @@ import QueuingManagementSystem.plugins.configureRouting
 import QueuingManagementSystem.plugins.configureSerialization
 import QueuingManagementSystem.plugins.configureSockets
 import QueuingManagementSystem.config.ConnectionPoolManager
-import QueuingManagementSystem.config.UserSeeder
+import QueuingManagementSystem.config.SampleUsersBootstrap
 
 fun main(args: Array<String>) {
     io.ktor.server.netty.EngineMain.main(args)
@@ -21,6 +21,6 @@ fun Application.module() {
     configureSockets()
     configureRouting()
 
-    runCatching { UserSeeder.seedUsers() }
-        .onFailure { println("UserSeeder skipped: ${it.message}") }
+    runCatching { SampleUsersBootstrap.bootstrap() }
+        .onFailure { println("SampleUsersBootstrap skipped: ${it.message}") }
 }
