@@ -3,64 +3,174 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QMS Handler</title>
+  <title>QMS Handler Terminal</title>
   <link rel="stylesheet" href="/css/app.css" />
+  <link rel="stylesheet" href="/css/handler-terminal.css" />
 </head>
-<body>
+<body class="terminal-workspace">
   <div id="topNav" class="topbar"></div>
-  <div class="container">
-    <div class="grid">
-      <div class="col-12 card">
-        <h3>Handler Queue Dashboard</h3>
-        <p class="small">Select a queued ticket, review details, then click <strong>Call Selected</strong>.</p>
-        <div id="handlerSummary" class="inline"></div>
+
+  <main class="terminal-page">
+    <section class="terminal-actions" aria-label="Terminal actions">
+      <button id="callBtn" class="terminal-btn">Call</button>
+      <button id="startBtn" class="terminal-btn">Start</button>
+      <button id="transferBtn" class="terminal-btn">Transfer</button>
+      <button id="holdBtn" class="terminal-btn">On-Hold</button>
+      <button id="noShowBtn" class="terminal-btn">No Show</button>
+      <button id="endBtn" class="terminal-btn">End</button>
+    </section>
+
+    <section class="terminal-panel info-panel">
+      <h2 class="panel-title">INFORMATION</h2>
+      <div id="terminalNotice" class="terminal-notice hidden"></div>
+      <div class="info-grid" id="ticketInfoGrid">
+        <div class="info-item"><span>MNNO</span><strong id="infoMnno">-</strong></div>
+        <div class="info-item"><span>Vessel</span><strong id="infoVessel">-</strong></div>
+        <div class="info-item"><span>Being Served By</span><strong id="infoServedBy">-</strong></div>
+        <div class="info-item"><span>Rank</span><strong id="infoRank">-</strong></div>
+        <div class="info-item"><span>Crew Change Date</span><strong id="infoCrewChangeDate">-</strong></div>
+        <div class="info-item"><span>Status</span><strong id="infoStatus">-</strong></div>
+        <div class="info-item"><span>Name</span><strong id="infoName">-</strong></div>
+        <div class="info-item"><span>Last Vessel</span><strong id="infoLastVessel">-</strong></div>
+        <div class="info-item"><span>Last CC Date</span><strong id="infoLastCcDate">-</strong></div>
+      </div>
+    </section>
+
+    <section class="queue-layout">
+      <div class="queue-column queue-left">
+        <article class="terminal-panel queue-panel">
+          <h3 class="panel-title">ALL</h3>
+          <div class="table-toolbar">
+            <label>Filter by:
+              <select data-panel="all" class="status-filter">
+                <option value="">Select...</option>
+                <option value="WAITING">Waiting</option>
+                <option value="CALLED">Called</option>
+                <option value="IN_SERVICE">In Service</option>
+                <option value="HOLD">On-Hold</option>
+                <option value="SKIPPED">No Show</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </label>
+            <input data-panel="all" class="panel-search" type="text" placeholder="Search..." />
+            <button data-panel="all" class="go-btn">Go</button>
+            <button data-panel="all" class="refresh-btn">Refresh</button>
+          </div>
+          <div class="table-frame">
+            <table>
+              <thead>
+                <tr>
+                  <th>TICKET NO.</th>
+                  <th>MNNO</th>
+                  <th>NAME</th>
+                  <th>TRANSACTION</th>
+                  <th>STATUS</th>
+                  <th>LAST CA/CS</th>
+                  <th>WAITING TIME</th>
+                </tr>
+              </thead>
+              <tbody id="allTableBody"></tbody>
+            </table>
+          </div>
+        </article>
       </div>
 
-      <div class="col-8 card">
-        <h3>All Queued Tickets (Current Window)</h3>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Ticket #</th>
-                <th>Crew ID</th>
-                <th>Name</th>
-                <th>Queue Type</th>
-                <th>Status</th>
-                <th>Queued</th>
-              </tr>
-            </thead>
-            <tbody id="queuedTicketsBody"></tbody>
-          </table>
-        </div>
-      </div>
+      <div class="queue-column queue-right">
+        <article class="terminal-panel queue-panel">
+          <h3 class="panel-title">ON-HOLD</h3>
+          <div class="table-toolbar">
+            <label>Filter by:
+              <select data-panel="hold" class="status-filter">
+                <option value="">Select...</option>
+                <option value="HOLD">On-Hold</option>
+              </select>
+            </label>
+            <input data-panel="hold" class="panel-search" type="text" placeholder="Search..." />
+            <button data-panel="hold" class="go-btn">Go</button>
+            <button data-panel="hold" class="refresh-btn">Refresh</button>
+          </div>
+          <div class="table-frame compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>TICKET NO.</th>
+                  <th>MNNO</th>
+                  <th>NAME</th>
+                  <th>TRANSACTION</th>
+                  <th>STATUS</th>
+                  <th>LAST CA/CS</th>
+                  <th>WAITING TIME</th>
+                </tr>
+              </thead>
+              <tbody id="holdTableBody"></tbody>
+            </table>
+          </div>
+        </article>
 
-      <div class="col-4 card">
-        <h3>Selected Ticket Information</h3>
-        <div id="activeTicket"><em>Select a ticket from the table.</em></div>
-        <button id="callSelectedBtn" disabled>Call Selected</button>
-        <label>Notes</label>
-        <textarea id="notes"></textarea>
-        <button id="startServiceBtn" class="success">Start Service</button>
-        <button id="holdBtn" class="warn">On-Hold</button>
-        <button id="noShowBtn" class="warn">No Show</button>
-        <button id="recallBtn" class="secondary">Recall</button>
-        <button id="completeBtn" class="success">Complete</button>
-      </div>
+        <article class="terminal-panel queue-panel">
+          <h3 class="panel-title">NO SHOW</h3>
+          <div class="table-toolbar">
+            <label>Filter by:
+              <select data-panel="noshow" class="status-filter">
+                <option value="">Select...</option>
+                <option value="SKIPPED">No Show</option>
+              </select>
+            </label>
+            <input data-panel="noshow" class="panel-search" type="text" placeholder="Search..." />
+            <button data-panel="noshow" class="go-btn">Go</button>
+            <button data-panel="noshow" class="refresh-btn">Refresh</button>
+          </div>
+          <div class="table-frame compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>TICKET NO.</th>
+                  <th>MNNO</th>
+                  <th>NAME</th>
+                  <th>TRANSACTION</th>
+                  <th>STATUS</th>
+                  <th>LAST CA/CS</th>
+                  <th>COMPLETED TIME</th>
+                </tr>
+              </thead>
+              <tbody id="noShowTableBody"></tbody>
+            </table>
+          </div>
+        </article>
 
-      <div class="col-6 card">
-        <h3>Current Active Session</h3>
-        <pre id="activeSession">{}</pre>
+        <article class="terminal-panel queue-panel">
+          <h3 class="panel-title">COMPLETED TRANSACTION</h3>
+          <div class="table-toolbar">
+            <label>Filter by:
+              <select data-panel="completed" class="status-filter">
+                <option value="">Select...</option>
+                <option value="COMPLETED">Completed</option>
+              </select>
+            </label>
+            <input data-panel="completed" class="panel-search" type="text" placeholder="Search..." />
+            <button data-panel="completed" class="go-btn">Go</button>
+            <button data-panel="completed" class="refresh-btn">Refresh</button>
+          </div>
+          <div class="table-frame compact">
+            <table>
+              <thead>
+                <tr>
+                  <th>TICKET NO.</th>
+                  <th>MNNO</th>
+                  <th>NAME</th>
+                  <th>TRANSACTION</th>
+                  <th>STATUS</th>
+                  <th>LAST CA/CS</th>
+                  <th>COMPLETED TIME</th>
+                </tr>
+              </thead>
+              <tbody id="completedTableBody"></tbody>
+            </table>
+          </div>
+        </article>
       </div>
-
-      <div class="col-6 card">
-        <h3>WebSocket Events</h3>
-        <pre id="wsEvents"></pre>
-      </div>
-
-      
-    </div>
-  </div>
+    </section>
+  </main>
 
   <script src="/js/storage.js"></script>
   <script src="/js/utils.js"></script>
