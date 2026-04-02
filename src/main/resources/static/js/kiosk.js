@@ -127,7 +127,7 @@
   }
 
   async function loadCompanies() {
-    const result = await window.Api.apiRequest('/companies/kiosk');
+    const result = await window.Api.apiRequest(withDeviceKey('/companies/kiosk'));
     const board = (result.data && result.data.data) || { title: 'QUEUING SYSTEM', companies: [] };
     kioskTitle.textContent = board.title || 'QUEUING SYSTEM';
     renderCompanyTiles(board.companies || []);
