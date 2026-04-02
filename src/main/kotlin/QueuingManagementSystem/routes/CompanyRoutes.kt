@@ -54,6 +54,24 @@ fun Route.companyRoutes() {
         return false
     }
 
+    fun io.ktor.server.request.ApplicationRequest.bearerToken(): String {
+        val header = headers["Authorization"] ?: return ""
+        if (!header.startsWith("Bearer ")) return ""
+        return header.removePrefix("Bearer ").trim()
+    }
+
+    suspend fun io.ktor.server.routing.RoutingContext.requireCompanyAdmin(): Boolean {
+        val principal = ProviderRegistry.userContextProvider.getCurrentUser(call.request.bearerToken())
+            ?: run {
+                call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized")); return false
+            }
+        val role = normalizeRole(principal.role)
+        if (role != Role.SUPER_ADMIN && role != Role.COMPANY_ADMIN) {
+            call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden")); return false
+        }
+        return true
+    }
+
     route("/companies") {
         get("/kiosk") {
             try {
