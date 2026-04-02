@@ -7,26 +7,39 @@ import QueuingManagementSystem.auth.models.StaffCurrentUserResult
 import QueuingManagementSystem.auth.models.StaffLoginResult
 import QueuingManagementSystem.auth.repositories.UserRepository
 import QueuingManagementSystem.models.GlobalCredentialResponse
+import org.slf4j.LoggerFactory
 
 class AuthService(
     private val userRepository: UserRepository = UserRepository(),
     private val jwtService: JwtService
 ) {
+    private val logger = LoggerFactory.getLogger(AuthService::class.java)
+
     fun login(email: String, password: String): StaffLoginResult {
-        val user = userRepository.findByEmail(email)
-            ?: return unauthorized("Invalid credentials")
+        return try {
+            val user = userRepository.findByEmail(email)
+                ?: return unauthorized("Invalid credentials")
 
-        if (!user.isActive) return unauthorized("User is inactive")
-        if (!PasswordCrypto.verifyPassword(password, user.passwordHash)) return unauthorized("Invalid credentials")
+            if (!user.isActive) return unauthorized("User is inactive")
+            if (!PasswordCrypto.verifyPassword(password, user.passwordHash)) return unauthorized("Invalid credentials")
 
-        userRepository.updateLastLogin(user.id)
-        val principal = user.toPrincipal()
-        return StaffLoginResult(
-            accessToken = jwtService.generateToken(principal),
-            forcePasswordChange = user.forcePasswordChange,
-            principal = principal,
-            result = GlobalCredentialResponse(200, true, "Login successful")
-        )
+            userRepository.updateLastLogin(user.id)
+            val principal = user.toPrincipal()
+            StaffLoginResult(
+                accessToken = jwtService.generateToken(principal),
+                forcePasswordChange = user.forcePasswordChange,
+                principal = principal,
+                result = GlobalCredentialResponse(200, true, "Login successful")
+            )
+        } catch (e: Exception) {
+            logger.error("Local login failed for {}: {}", email, e.message, e)
+            StaffLoginResult(
+                accessToken = "",
+                forcePasswordChange = false,
+                principal = AuthPrincipal(0, "", "", "", null, null, emptyList(), "LOCAL"),
+                result = GlobalCredentialResponse(500, false, "Local auth store is not ready")
+            )
+        }
     }
 
     fun changePassword(token: String, currentPassword: String, newPassword: String): GlobalCredentialResponse {
@@ -55,30 +68,18 @@ class AuthService(
 
     fun bootstrapIfEmpty() {
         if (userRepository.count() > 0) return
-
-        val defaults = listOf(
-            Triple("superadmin@qms.local", "SUPERADMIN", "Super Admin"),
-            Triple("departmentadmin@qms.local", "DEPARTMENT_ADMIN", "Department Admin"),
-            Triple("supervisor@qms.local", "SUPERVISOR", "Supervisor"),
-            Triple("moderator@qms.local", "MODERATOR", "Moderator"),
-            Triple("handler@qms.local", "HANDLER", "Handler")
-        )
-
-        defaults.forEach { item ->
-            val defaultPassword = "admin123"
-            userRepository.create(
-                CreateQueueUserRequest(
-                    email = item.first,
-                    passwordHash = PasswordCrypto.hashPassword(defaultPassword),
-                    role = item.second,
-                    fullName = item.third,
-                    companyId = null,
-                    departmentId = if (item.second == "SUPERADMIN") null else 1,
-                    isActive = true,
-                    forcePasswordChange = true
-                )
+        userRepository.create(
+            CreateQueueUserRequest(
+                email = "superadmin@qms.local",
+                passwordHash = PasswordCrypto.hashPassword("admin123"),
+                role = "SUPER_ADMIN",
+                fullName = "Super Admin",
+                companyId = null,
+                departmentId = null,
+                isActive = true,
+                forcePasswordChange = true
             )
-        }
+        )
     }
 
     private fun getCurrentQueueUser(token: String): QueueUser? {
@@ -95,13 +96,14 @@ class AuthService(
         role = role,
         companyId = companyId,
         departmentId = departmentId,
-        authSource = "QUEUE_USERS"
+        permissions = userRepository.listPermissions(id, role),
+        authSource = "LOCAL"
     )
 
     private fun unauthorized(message: String) = StaffLoginResult(
         accessToken = "",
         forcePasswordChange = false,
-        principal = AuthPrincipal(0, "", "", "", null, null, "QUEUE_USERS"),
+        principal = AuthPrincipal(0, "", "", "", null, null, emptyList(), "LOCAL"),
         result = GlobalCredentialResponse(401, false, message)
     )
 }

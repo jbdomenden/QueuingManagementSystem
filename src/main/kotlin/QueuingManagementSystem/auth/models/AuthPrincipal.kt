@@ -10,5 +10,6 @@ data class AuthPrincipal(
     val role: String,
     val companyId: Int?,
     val departmentId: Int?,
+    val permissions: List<String> = emptyList(),
     val authSource: String
 )
