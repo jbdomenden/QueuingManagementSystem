@@ -4,8 +4,8 @@ import QueuingManagementSystem.common.Role
 import QueuingManagementSystem.common.normalizeRole
 import QueuingManagementSystem.config.ProviderRegistry
 import QueuingManagementSystem.controllers.CompanyController
+import QueuingManagementSystem.controllers.AuthController
 import QueuingManagementSystem.devices.DeviceType
-import QueuingManagementSystem.devices.requireDeviceContext
 import QueuingManagementSystem.models.CompanyKioskBoard
 import QueuingManagementSystem.models.CompanyListResponse
 import QueuingManagementSystem.models.CompanyRequest
@@ -26,6 +26,33 @@ import io.ktor.server.routing.route
 
 fun Route.companyRoutes() {
     val controller = CompanyController()
+    val legacyAuthController = AuthController()
+
+    fun io.ktor.server.request.ApplicationRequest.bearerToken(): String {
+        val header = headers["Authorization"] ?: return ""
+        if (!header.startsWith("Bearer ")) return ""
+        return header.removePrefix("Bearer ").trim()
+    }
+
+    suspend fun io.ktor.server.routing.RoutingContext.requireCompanyAdmin(): Boolean {
+        val bearer = call.request.bearerToken()
+        val principal = ProviderRegistry.userContextProvider.getCurrentUser(bearer)
+        if (principal != null) {
+            val role = normalizeRole(principal.role)
+            if (role == Role.SUPER_ADMIN || role == Role.COMPANY_ADMIN) return true
+            call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden")); return false
+        }
+
+        val legacy = legacyAuthController.getValidatedSessionByToken(bearer)
+        if (legacy != null) {
+            val role = normalizeRole(legacy.role)
+            if (role == Role.SUPER_ADMIN || role == Role.COMPANY_ADMIN) return true
+            call.respond(HttpStatusCode.Forbidden, GlobalCredentialResponse(403, false, "Forbidden")); return false
+        }
+
+        call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Unauthorized"))
+        return false
+    }
 
     fun io.ktor.server.request.ApplicationRequest.bearerToken(): String {
         val header = headers["Authorization"] ?: return ""
@@ -48,11 +75,22 @@ fun Route.companyRoutes() {
     route("/companies") {
         get("/kiosk") {
             try {
-                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@get
+                val keyFromHeader = call.request.headers["X-Device-Key"]?.trim().orEmpty()
+                val keyFromQuery = call.request.queryParameters["device_key"]?.trim().orEmpty()
+                val deviceKey = keyFromHeader.ifBlank { keyFromQuery }
+
+                if (deviceKey.isBlank()) {
+                    return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", controller.getActiveCompaniesForKiosk()), GlobalCredentialResponse(200, true, "OK")))
+                }
+
+                val device = ProviderRegistry.deviceAuthProvider.authenticateDevice(deviceKey, DeviceType.KIOSK.name)
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Invalid kiosk device"))
+
                 if (device.companyId != null) {
                     val scoped = controller.getActiveCompaniesForKiosk().filter { it.id == device.companyId }
                     return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", scoped), GlobalCredentialResponse(200, true, "OK")))
                 }
+
                 call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", controller.getActiveCompaniesForKiosk()), GlobalCredentialResponse(200, true, "OK")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))
