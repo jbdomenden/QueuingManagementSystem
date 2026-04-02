@@ -5,7 +5,6 @@ import QueuingManagementSystem.common.normalizeRole
 import QueuingManagementSystem.config.ProviderRegistry
 import QueuingManagementSystem.controllers.CompanyController
 import QueuingManagementSystem.devices.DeviceType
-import QueuingManagementSystem.devices.requireDeviceContext
 import QueuingManagementSystem.models.CompanyKioskBoard
 import QueuingManagementSystem.models.CompanyListResponse
 import QueuingManagementSystem.models.CompanyRequest
@@ -48,11 +47,22 @@ fun Route.companyRoutes() {
     route("/companies") {
         get("/kiosk") {
             try {
-                val device = requireDeviceContext(DeviceType.KIOSK) ?: return@get
+                val keyFromHeader = call.request.headers["X-Device-Key"]?.trim().orEmpty()
+                val keyFromQuery = call.request.queryParameters["device_key"]?.trim().orEmpty()
+                val deviceKey = keyFromHeader.ifBlank { keyFromQuery }
+
+                if (deviceKey.isBlank()) {
+                    return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", controller.getActiveCompaniesForKiosk()), GlobalCredentialResponse(200, true, "OK")))
+                }
+
+                val device = ProviderRegistry.deviceAuthProvider.authenticateDevice(deviceKey, DeviceType.KIOSK.name)
+                    ?: return@get call.respond(HttpStatusCode.Unauthorized, GlobalCredentialResponse(401, false, "Invalid kiosk device"))
+
                 if (device.companyId != null) {
                     val scoped = controller.getActiveCompaniesForKiosk().filter { it.id == device.companyId }
                     return@get call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", scoped), GlobalCredentialResponse(200, true, "OK")))
                 }
+
                 call.respond(HttpStatusCode.OK, SingleResponse(CompanyKioskBoard("QUEUING SYSTEM", controller.getActiveCompaniesForKiosk()), GlobalCredentialResponse(200, true, "OK")))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, GlobalCredentialResponse(500, false, e.message ?: "Internal server error"))

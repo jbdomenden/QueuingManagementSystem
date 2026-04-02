@@ -41,13 +41,14 @@
 
     const isTerminalWorkspace = document.body.classList.contains('terminal-workspace');
     nav.innerHTML = `
-      <div class="shell-header ${isTerminalWorkspace ? 'terminal-shell-header' : ''}">
+      <div class="shell-header">
         <div class="shell-header-left">
           <button id="shellHamburger" class="icon-btn" aria-label="Toggle menu" ${showHamburger ? '' : 'style="visibility:hidden"'}>☰</button>
-          ${isTerminalWorkspace ? '<div class="shell-title terminal-shell-title"></div>' : '<div class="shell-title">Queuing Management System</div>'}
+          <div class="shell-title">Queuing Management System</div>
         </div>
-        <div class="shell-header-right ${isTerminalWorkspace ? 'terminal-shell-right' : ''}">
-          ${isTerminalWorkspace ? `<div class="terminal-header-meta"><div id="terminalLiveDateTime" class="terminal-live-datetime"></div><div class="terminal-identity">Terminal: <span id="terminalNameLabel">UNASSIGNED</span></div><div class="terminal-identity">Username: <span id="terminalUserLabel">${auth.full_name || 'Staff User'}</span></div></div>` : `<div class="shell-avatar">${initials(auth.full_name)}</div><div class="shell-user-name">${auth.full_name || 'Staff User'}</div>`}
+        <div class="shell-header-right">
+          <div class="shell-avatar">${initials(auth.full_name)}</div>
+          <div class="shell-user-name">${auth.full_name || 'Staff User'}</div>
           <button id="shellKebab" class="icon-btn" aria-label="Open account menu">⋮</button>
           <div id="shellKebabMenu" class="kebab-menu hidden">
             <button id="changePasswordAction">Change Password</button>
