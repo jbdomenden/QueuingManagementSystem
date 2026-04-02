@@ -39,6 +39,7 @@
     const visibleModules = MODULES.filter(m => canSeeModule(auth, m));
     const showHamburger = visibleModules.length > 1;
 
+    const isTerminalWorkspace = document.body.classList.contains('terminal-workspace');
     nav.innerHTML = `
       <div class="shell-header">
         <div class="shell-header-left">
