@@ -2,6 +2,7 @@ package QueuingManagementSystem.auth.repositories
 
 import QueuingManagementSystem.auth.models.CreateQueueUserRequest
 import QueuingManagementSystem.auth.models.QueueUser
+import QueuingManagementSystem.common.ALL_ACCESS_KEYS
 import QueuingManagementSystem.config.ConnectionPoolManager
 import java.time.Instant
 
@@ -96,6 +97,28 @@ class UserRepository {
                 statement.setInt(1, id)
                 return statement.executeUpdate() > 0
             }
+        }
+    }
+
+    fun listPermissions(userId: Int, role: String): List<String> {
+        if (role.uppercase() == "SUPER_ADMIN" || role.uppercase() == "SUPERADMIN") return ALL_ACCESS_KEYS.toList()
+        val sql = "SELECT access_key, is_allowed FROM user_access WHERE user_id = ?"
+        val allowed = mutableSetOf<String>()
+        return try {
+            ConnectionPoolManager.getConnection().use { connection ->
+                connection.prepareStatement(sql).use { statement ->
+                    statement.setInt(1, userId)
+                    statement.executeQuery().use { rs ->
+                        while (rs.next()) {
+                            val key = rs.getString("access_key")
+                            if (rs.getBoolean("is_allowed")) allowed.add(key) else allowed.remove(key)
+                        }
+                    }
+                }
+            }
+            allowed.toList()
+        } catch (_: Exception) {
+            emptyList()
         }
     }
 

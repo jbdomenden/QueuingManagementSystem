@@ -29,3 +29,18 @@ data class StaffCurrentUserResult(
     val forcePasswordChange: Boolean,
     val result: GlobalCredentialResponse
 )
+
+@Serializable
+data class StaffLoginResponsePayload(
+    val token: String,
+    val forcePasswordChange: Boolean,
+    val principal: AuthPrincipal,
+    val result: GlobalCredentialResponse
+)
+
+@Serializable
+data class StaffMeResponsePayload(
+    val principal: AuthPrincipal,
+    val forcePasswordChange: Boolean,
+    val result: GlobalCredentialResponse
+)
