@@ -111,8 +111,8 @@
   function renderNav(active) { renderShell(active); }
 
   function ensureLoggedIn() {
-    const auth = window.StorageHelper.getAuth();
-    if (!auth.token) {
+    const token = window.StorageHelper.getToken();
+    if (!token) {
       location.href = '/index.html';
       return false;
     }
