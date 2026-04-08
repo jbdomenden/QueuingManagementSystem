@@ -140,7 +140,10 @@
       return (a.companyCode || '').localeCompare(b.companyCode || '');
     });
 
-    grid.innerHTML = sorted.map(company => {
+    const bigCards = sorted.filter(company => company.cardSizeType === 'BIG');
+    const smallCards = sorted.filter(company => company.cardSizeType !== 'BIG');
+
+    const cardTemplate = (company) => {
       const cardType = company.cardSizeType === 'BIG' ? 'big' : 'small';
       return `
         <button class="company-card ${cardType}" data-company-id="${company.id}" data-company-name="${company.companyName}">
@@ -148,7 +151,16 @@
           <span class="company-card-subtitle">(${company.companyDescription || company.companyName})</span>
         </button>
       `;
-    }).join('');
+    };
+
+    grid.innerHTML = `
+      <div class="company-grid-big">
+        ${bigCards.map(cardTemplate).join('')}
+      </div>
+      <div class="company-grid-small ${smallCards.length ? '' : 'hidden'}">
+        ${smallCards.map(cardTemplate).join('')}
+      </div>
+    `;
 
     document.querySelectorAll('.company-card').forEach(btn => {
       btn.onclick = async () => {

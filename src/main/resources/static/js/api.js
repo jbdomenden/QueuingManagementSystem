@@ -20,13 +20,13 @@
   }
 
   async function apiRequest(path, options) {
-    const auth = window.StorageHelper.getAuth();
+    const token = window.StorageHelper.getToken();
     const headers = Object.assign({}, (options && options.headers) || {});
     if (!headers['Content-Type'] && options && options.body) {
       headers['Content-Type'] = 'application/json';
     }
-    if (auth.token) {
-      headers['Authorization'] = `Bearer ${auth.token}`;
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
     const deviceKey = resolveDeviceKey(path);
