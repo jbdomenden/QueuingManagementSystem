@@ -275,11 +275,22 @@ pre {
 }
 
 .company-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.company-grid-big,
+.company-grid-small {
   display: grid;
   grid-template-columns: repeat(12, minmax(0, 1fr));
   grid-auto-flow: row;
   gap: 10px;
   align-items: stretch;
+}
+
+.company-grid-small {
+  margin-top: 2px;
 }
 
 .company-card {
