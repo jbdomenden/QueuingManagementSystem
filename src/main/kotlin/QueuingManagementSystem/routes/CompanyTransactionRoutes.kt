@@ -22,6 +22,13 @@ import io.ktor.server.routing.route
 fun Route.companyTransactionRoutes() {
     val authController = AuthController()
     val controller = CompanyTransactionController()
+    val allowedManagementRoles = setOf(
+        Role.SUPER_ADMIN,
+        Role.DEPARTMENT_ADMIN,
+        Role.COMPANY_ADMIN,
+        Role.MANAGER,
+        Role.SUPERVISOR
+    )
 
     route("/company-transactions") {
         get("/kiosk/company/{companyId}") {
@@ -46,7 +53,7 @@ fun Route.companyTransactionRoutes() {
         get("/company/{companyId}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@get
 
                 val companyId = call.parameters["companyId"]?.toIntOrNull() ?: 0
                 if (companyId <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "companyId is required"))
@@ -65,7 +72,7 @@ fun Route.companyTransactionRoutes() {
         get("/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@get
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@get
 
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@get call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
@@ -82,7 +89,7 @@ fun Route.companyTransactionRoutes() {
         post("/create") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@post
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@post
 
                 val request = call.receive<CompanyTransactionRequest>()
                 val errors = request.validateCompanyTransactionRequest()
@@ -98,7 +105,7 @@ fun Route.companyTransactionRoutes() {
         put("/update/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@put
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@put
 
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@put call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
@@ -117,7 +124,7 @@ fun Route.companyTransactionRoutes() {
         patch("/toggle/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@patch
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@patch
 
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@patch call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
@@ -136,7 +143,7 @@ fun Route.companyTransactionRoutes() {
         delete("/deactivate/{id}") {
             try {
                 val session = authController.getUserSessionByToken(call.request.extractBearerToken())
-                if (!requireAnyRole(session.role, setOf(Role.SUPER_ADMIN, Role.DEPARTMENT_ADMIN))) return@delete
+                if (!requireAnyRole(session.role, allowedManagementRoles)) return@delete
 
                 val id = call.parameters["id"]?.toIntOrNull() ?: 0
                 if (id <= 0) return@delete call.respond(HttpStatusCode.BadRequest, GlobalCredentialResponse(400, false, "id is required"))
