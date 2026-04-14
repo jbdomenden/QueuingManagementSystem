@@ -11,6 +11,7 @@ object DatabaseSchemaInitializer {
             connection.autoCommit = false
             try {
                 executeSqlScript(connection, sqlScript)
+                SchemaTableVerifier.verifyTablesExist(connection, sqlScript)
                 connection.commit()
             } catch (e: Exception) {
                 connection.rollback()
