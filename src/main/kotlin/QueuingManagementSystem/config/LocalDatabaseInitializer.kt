@@ -24,6 +24,7 @@ object LocalDatabaseInitializer {
             connection.autoCommit = false
             try {
                 executeSqlScript(connection, sqlScript)
+                SchemaTableVerifier.verifyTablesExist(connection, sqlScript)
                 connection.commit()
                 logger.info("Local schema initialization completed")
             } catch (e: Exception) {
