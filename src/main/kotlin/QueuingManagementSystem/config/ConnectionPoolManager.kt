@@ -4,7 +4,7 @@ import java.sql.Connection
 import java.sql.DriverManager
 
 object ConnectionPoolManager {
-    private var jdbcUrl: String = "jdbc:postgresql://localhost:5432/queuing"
+    private var jdbcUrl: String = "jdbc:postgresql://localhost:5433/qms_db"
     private var jdbcUser: String = "postgres"
     private var jdbcPassword: String = "postgres"
 
